@@ -20,6 +20,12 @@ describe("buildDoomLaunchCommand", () => {
       "IPXSETUP.EXE -nodes 2 -skill 3 -warp 1 1 -deathmatch"
     );
   });
+
+  it("starts Doom II maps with the single-number warp form", () => {
+    expect(buildDoomLaunchCommand(room({ mapFormat: "map-number", map: 32 }))).toBe(
+      "IPXSETUP.EXE -nodes 2 -skill 3 -warp 32"
+    );
+  });
 });
 
 function room(overrides: Partial<RoomRecord>): RoomRecord {
@@ -31,6 +37,7 @@ function room(overrides: Partial<RoomRecord>): RoomRecord {
     maxPlayers: 2,
     episode: 1,
     map: 1,
+    mapFormat: "episode-map",
     skill: 3,
     deathmatchMonsters: false,
     createdAt: new Date(0).toISOString(),

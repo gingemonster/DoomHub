@@ -11,7 +11,7 @@ export async function getRoomBundlePath(room: RoomRecord, config: AppConfig): Pr
   const generatedPath = path.join(
     config.bundleStoragePath,
     "generated",
-    `${room.wadId}-v${bundleCacheVersion}-${room.mode}-${room.maxPlayers}-e${room.episode}m${room.map}-s${room.skill}-${room.deathmatchMonsters ? "monsters" : "nomonsters"}.jsdos`
+    `${room.wadId}-v${bundleCacheVersion}-${room.mode}-${room.maxPlayers}-${room.mapFormat === "episode-map" ? `e${room.episode}m${room.map}` : `map${room.map}`}-s${room.skill}-${room.deathmatchMonsters ? "monsters" : "nomonsters"}.jsdos`
   );
 
   const [sourceStat, generatedStat] = await Promise.all([
@@ -66,10 +66,14 @@ export function buildDoomLaunchCommand(room: RoomRecord): string {
     String(room.maxPlayers),
     "-skill",
     String(room.skill),
-    "-warp",
-    String(room.episode),
-    String(room.map)
+    "-warp"
   ];
+
+  if (room.mapFormat === "episode-map") {
+    parts.push(String(room.episode), String(room.map));
+  } else {
+    parts.push(String(room.map));
+  }
 
   if (room.mode === "deathmatch") {
     parts.push("-deathmatch");

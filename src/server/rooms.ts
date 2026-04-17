@@ -4,7 +4,8 @@ import { customAlphabet, nanoid } from "nanoid";
 import type { Database } from "better-sqlite3";
 import type { AppConfig } from "./config.js";
 import { HttpError } from "./errors.js";
-import type { LaunchConfig, RoomMode, RoomRecord, RoomSummary, WadRecord } from "./types.js";
+import type { LaunchConfig, MapFormat, RoomMode, RoomRecord, RoomSummary, WadRecord } from "./types.js";
+import { hashFile, inspectJsdosBundle } from "./wadMetadata.js";
 
 const roomSlug = customAlphabet("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", 8);
 const allowedModes = new Set<RoomMode>(["cooperative", "deathmatch"]);
@@ -27,6 +28,7 @@ interface RoomRow {
   max_players: number;
   episode: number;
   map: number;
+  map_format: MapFormat;
   skill: number;
   deathmatch_monsters: number;
   created_at: string;
@@ -40,6 +42,9 @@ interface WadRow {
   file_name: string;
   sha256: string;
   allowed_modes: string;
+  map_format: MapFormat;
+  max_episode: number;
+  max_map: number;
   created_at: string;
 }
 
@@ -49,7 +54,7 @@ export class RoomService {
     private readonly config: AppConfig
   ) {}
 
-  listRooms(): RoomSummary[] {
+  async listRooms(): Promise<RoomSummary[]> {
     if (!this.config.visiblePrivateRooms) {
       return [];
     }
@@ -65,7 +70,7 @@ export class RoomService {
       ORDER BY r.created_at DESC
       LIMIT 50
     `).all() as Array<RoomRow & { active_players: number }>;
-    const wads = new Map(this.listWads().map((wad) => [wad.id, wad]));
+    const wads = new Map((await this.listWads()).map((wad) => [wad.id, wad]));
 
     return rows.map((row) => ({
       ...mapRoom(row),
@@ -74,9 +79,10 @@ export class RoomService {
     }));
   }
 
-  createRoom(input: CreateRoomInput): RoomRecord {
-    const availableWads = this.listWads();
+  async createRoom(input: CreateRoomInput): Promise<RoomRecord> {
+    const availableWads = await this.listWads();
     const wadId = input.wadId ?? availableWads.find((wad) => wad.id === "doom-shareware")?.id ?? availableWads[0]?.id ?? "doom-shareware";
+    const wad = this.getWadFromList(wadId, availableWads);
     const mode = input.mode ?? "deathmatch";
     const maxPlayers = input.maxPlayers ?? 2;
     const episode = input.episode ?? 1;
@@ -90,17 +96,16 @@ export class RoomService {
     if (!Number.isInteger(maxPlayers) || maxPlayers < 2 || maxPlayers > 4) {
       throw new HttpError(400, "Doom multiplayer rooms support 2 to 4 players.");
     }
-    if (!Number.isInteger(episode) || episode < 1 || episode > 4) {
-      throw new HttpError(400, "Episode must be between 1 and 4.");
+    if (wad.mapFormat === "episode-map" && (!Number.isInteger(episode) || episode < 1 || episode > wad.maxEpisode)) {
+      throw new HttpError(400, `Episode must be between 1 and ${wad.maxEpisode}.`);
     }
-    if (!Number.isInteger(map) || map < 1 || map > 9) {
-      throw new HttpError(400, "Map must be between 1 and 9.");
+    if (!Number.isInteger(map) || map < 1 || map > wad.maxMap) {
+      throw new HttpError(400, `Map must be between 1 and ${wad.maxMap}.`);
     }
     if (!Number.isInteger(skill) || skill < 1 || skill > 5) {
       throw new HttpError(400, "Skill must be between 1 and 5.");
     }
 
-    const wad = this.getWad(wadId);
     if (!wad.allowedModes.includes(mode)) {
       throw new HttpError(400, `${wad.displayName} does not allow ${mode} rooms.`);
     }
@@ -121,6 +126,7 @@ export class RoomService {
       maxPlayers,
       episode,
       map,
+      mapFormat: wad.mapFormat,
       skill,
       deathmatchMonsters,
       createdAt: now.toISOString(),
@@ -130,11 +136,11 @@ export class RoomService {
 
     this.db.prepare(`
       INSERT INTO rooms (
-        room_id, slug, wad_id, mode, max_players, episode, map, skill, deathmatch_monsters,
+        room_id, slug, wad_id, mode, max_players, episode, map, map_format, skill, deathmatch_monsters,
         created_at, expires_at, last_heartbeat_at
       )
       VALUES (
-        @roomId, @slug, @wadId, @mode, @maxPlayers, @episode, @map, @skill, @deathmatchMonsters,
+        @roomId, @slug, @wadId, @mode, @maxPlayers, @episode, @map, @mapFormat, @skill, @deathmatchMonsters,
         @createdAt, @expiresAt, @lastHeartbeatAt
       )
     `).run({
@@ -182,51 +188,81 @@ export class RoomService {
     return { activePlayers: row.count };
   }
 
-  listWads(): WadRecord[] {
+  async listWads(): Promise<WadRecord[]> {
     const rows = this.db.prepare("SELECT * FROM wads ORDER BY display_name").all() as WadRow[];
     const dbWads = new Map(rows.map((row) => [row.id, mapWad(row)]));
-    return this.listBundleWads(dbWads).sort((a, b) => a.displayName.localeCompare(b.displayName));
+    const wads = await this.listBundleWads(dbWads);
+    return wads.sort((a, b) => a.displayName.localeCompare(b.displayName));
   }
 
-  private getWad(id: string): WadRecord {
-    const wad = this.listWads().find((item) => item.id === id);
+  private getWadFromList(id: string, wads: WadRecord[]): WadRecord {
+    const wad = wads.find((item) => item.id === id);
     if (!wad) {
       throw new HttpError(400, "Unknown WAD.");
     }
     return wad;
   }
 
-  private listBundleWads(dbWads: Map<string, WadRecord>): WadRecord[] {
+  private async listBundleWads(dbWads: Map<string, WadRecord>): Promise<WadRecord[]> {
     const entries = fs.existsSync(this.config.bundleStoragePath)
       ? fs.readdirSync(this.config.bundleStoragePath, { withFileTypes: true })
       : [];
 
-    return entries
+    return Promise.all(entries
       .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".jsdos"))
-      .map((entry) => {
+      .map(async (entry) => {
         const id = entry.name.slice(0, -".jsdos".length);
         const dbWad = dbWads.get(id);
-        return {
+        const bundlePath = path.join(this.config.bundleStoragePath, entry.name);
+        const sha256 = await hashFile(bundlePath);
+        const existingMetadataIsCurrent = dbWad?.sha256 === sha256;
+        const bundleMetadata = existingMetadataIsCurrent
+          ? {
+              sha256,
+              mapFormat: dbWad.mapFormat,
+              maxEpisode: dbWad.maxEpisode,
+              maxMap: dbWad.maxMap
+            }
+          : await inspectJsdosBundle(bundlePath);
+        const wad = {
           id,
           displayName: dbWad?.displayName ?? titleFromId(id),
           fileName: dbWad?.fileName ?? entry.name,
-          sha256: dbWad?.sha256 ?? `bundle:${id}`,
+          sha256: bundleMetadata.sha256,
           allowedModes: dbWad?.allowedModes ?? ["cooperative", "deathmatch"],
-          createdAt: dbWad?.createdAt ?? fs.statSync(path.join(this.config.bundleStoragePath, entry.name)).mtime.toISOString()
+          mapFormat: bundleMetadata.mapFormat,
+          maxEpisode: bundleMetadata.maxEpisode,
+          maxMap: bundleMetadata.maxMap,
+          createdAt: dbWad?.createdAt ?? fs.statSync(bundlePath).mtime.toISOString()
         };
-      });
+        if (!existingMetadataIsCurrent) {
+          this.ensureWadRecord(wad);
+        }
+        return wad;
+      }));
   }
 
   private ensureWadRecord(wad: WadRecord): void {
     this.db.prepare(`
-      INSERT OR IGNORE INTO wads (id, display_name, file_name, sha256, allowed_modes, created_at)
-      VALUES (@id, @displayName, @fileName, @sha256, @allowedModes, @createdAt)
+      INSERT INTO wads (id, display_name, file_name, sha256, allowed_modes, map_format, max_episode, max_map, created_at)
+      VALUES (@id, @displayName, @fileName, @sha256, @allowedModes, @mapFormat, @maxEpisode, @maxMap, @createdAt)
+      ON CONFLICT(id) DO UPDATE SET
+        display_name = excluded.display_name,
+        file_name = excluded.file_name,
+        sha256 = excluded.sha256,
+        allowed_modes = excluded.allowed_modes,
+        map_format = excluded.map_format,
+        max_episode = excluded.max_episode,
+        max_map = excluded.max_map
     `).run({
       id: wad.id,
       displayName: wad.displayName,
       fileName: wad.fileName,
       sha256: wad.sha256,
       allowedModes: JSON.stringify(wad.allowedModes),
+      mapFormat: wad.mapFormat,
+      maxEpisode: wad.maxEpisode,
+      maxMap: wad.maxMap,
       createdAt: wad.createdAt
     });
   }
@@ -260,6 +296,7 @@ function mapRoom(row: RoomRow): RoomRecord {
     maxPlayers: row.max_players,
     episode: row.episode,
     map: row.map,
+    mapFormat: row.map_format,
     skill: row.skill,
     deathmatchMonsters: row.deathmatch_monsters === 1,
     createdAt: row.created_at,
@@ -275,6 +312,9 @@ function mapWad(row: WadRow): WadRecord {
     fileName: row.file_name,
     sha256: row.sha256,
     allowedModes: JSON.parse(row.allowed_modes) as RoomMode[],
+    mapFormat: row.map_format,
+    maxEpisode: row.max_episode,
+    maxMap: row.max_map,
     createdAt: row.created_at
   };
 }

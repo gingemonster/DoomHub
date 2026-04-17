@@ -3,11 +3,15 @@ import { createRoot } from "react-dom/client";
 import "./styles.css";
 
 type RoomMode = "cooperative" | "deathmatch";
+type MapFormat = "episode-map" | "map-number";
 
 interface WadRecord {
   id: string;
   displayName: string;
   allowedModes: RoomMode[];
+  mapFormat: MapFormat;
+  maxEpisode: number;
+  maxMap: number;
 }
 
 interface RoomRecord {
@@ -17,6 +21,7 @@ interface RoomRecord {
   maxPlayers: number;
   episode: number;
   map: number;
+  mapFormat: MapFormat;
   skill: number;
   deathmatchMonsters: boolean;
   expiresAt: string;
@@ -94,6 +99,15 @@ function HomePage() {
   }, []);
 
   const selectedWad = wads.find((wad) => wad.id === selectedWadId);
+  const usesEpisodes = selectedWad?.mapFormat !== "map-number";
+
+  useEffect(() => {
+    if (!selectedWad) {
+      return;
+    }
+    setEpisode((current) => Math.min(Math.max(current, 1), selectedWad.maxEpisode));
+    setMap((current) => Math.min(Math.max(current, 1), selectedWad.maxMap));
+  }, [selectedWad]);
 
   async function createRoom(event: React.FormEvent) {
     event.preventDefault();
@@ -182,14 +196,21 @@ function HomePage() {
               </label>
               <label>
                 Episode
-                <input type="number" min="1" max="4" value={episode} onChange={(event) => setEpisode(Number(event.target.value))} />
+                <input
+                  type="number"
+                  min="1"
+                  max={selectedWad?.maxEpisode ?? 4}
+                  value={episode}
+                  onChange={(event) => setEpisode(Number(event.target.value))}
+                  disabled={!usesEpisodes}
+                />
               </label>
             </div>
 
             <div className="field-row">
               <label>
                 Map
-                <input type="number" min="1" max="9" value={map} onChange={(event) => setMap(Number(event.target.value))} />
+                <input type="number" min="1" max={selectedWad?.maxMap ?? 9} value={map} onChange={(event) => setMap(Number(event.target.value))} />
               </label>
               <label>
                 Skill
@@ -354,7 +375,7 @@ function RoomPage({ slug }: { slug: string }) {
         </a>
         <div>
           <p className="eyebrow">Room {slug}</p>
-          <h1>{room ? `${room.mode} E${room.episode}M${room.map}` : "Loading room..."}</h1>
+          <h1>{room ? `${room.mode} ${formatRoomMap(room)}` : "Loading room..."}</h1>
         </div>
         <div className="room-actions">
           <span>{activePlayers} active</span>
@@ -426,6 +447,10 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 function getRoomSlug(): string | null {
   const match = window.location.pathname.match(/^\/r\/([^/]+)$/);
   return match ? match[1].toUpperCase() : null;
+}
+
+function formatRoomMap(room: RoomRecord): string {
+  return room.mapFormat === "map-number" ? `MAP${String(room.map).padStart(2, "0")}` : `E${room.episode}M${room.map}`;
 }
 
 function getPlayerId(): string {

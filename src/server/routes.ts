@@ -17,7 +17,7 @@ export async function registerRoutes(app: FastifyInstance, rooms: RoomService, c
   app.get("/api/rooms", async () => rooms.listRooms());
 
   app.post("/api/rooms", async (request, reply) => {
-    const room = rooms.createRoom(request.body ?? {});
+    const room = await rooms.createRoom(request.body ?? {});
     return reply.code(201).send({
       room,
       url: `${config.publicBaseUrl.replace(/\/$/, "")}/r/${room.slug}`

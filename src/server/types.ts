@@ -1,4 +1,5 @@
 export type RoomMode = "cooperative" | "deathmatch";
+export type MapFormat = "episode-map" | "map-number";
 
 export interface WadRecord {
   id: string;
@@ -6,6 +7,9 @@ export interface WadRecord {
   fileName: string;
   sha256: string;
   allowedModes: RoomMode[];
+  mapFormat: MapFormat;
+  maxEpisode: number;
+  maxMap: number;
   createdAt: string;
 }
 
@@ -17,6 +21,7 @@ export interface RoomRecord {
   maxPlayers: number;
   episode: number;
   map: number;
+  mapFormat: MapFormat;
   skill: number;
   deathmatchMonsters: boolean;
   createdAt: string;
