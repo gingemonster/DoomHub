@@ -33,6 +33,8 @@ The compose file mounts:
 - `./data/bundles` for generated or copied `.jsdos` bundles.
 - A Docker volume for SQLite metadata.
 
+The web image does not include local `data` contents. Keep WADs and `.jsdos` bundles mounted at runtime instead of baking them into the image.
+
 By default, Compose exposes the app directly:
 
 - Web app and API: `http://localhost:3000`
@@ -46,7 +48,7 @@ The bundled Caddy proxy is optional:
 make docker-up-proxy
 ```
 
-That starts Compose with `COMPOSE_PROFILES=managed-proxy` and exposes Caddy on `http://localhost:8080`. Override the port with `PUBLIC_HTTP_PORT=8081 make docker-up-proxy`.
+That starts Compose with `COMPOSE_PROFILES=managed-proxy` and exposes Caddy on `http://localhost:8080`. The browser reaches the IPX relay through `ws://localhost:8080/ipx/<room>`. Override the port with `PUBLIC_HTTP_PORT=8081 IPX_WSS_URL=ws://localhost:8081/ipx make docker-up-proxy`.
 
 Room creation scans direct `.jsdos` files under `data/bundles` and lists them in the WAD dropdown. For example, add `doom-shareware.jsdos` or `doom-full.jsdos` under `data/bundles`. Generated room-specific bundles are written under `data/bundles/generated` and are not listed.
 
@@ -85,7 +87,7 @@ If you use those image names with Compose, set the service `image:` values or re
 Copy `.env.example` to `.env` for local overrides.
 
 - `PUBLIC_BASE_URL`: public origin used in generated room links.
-- `IPX_WSS_URL`: browser-accessible js-dos IPX relay host. js-dos appends `:1900/ipx/<room>`, so use values like `ws://localhost` locally or `wss://example.com` in production. Required in production.
+- `IPX_WSS_URL`: browser-accessible js-dos IPX relay websocket base URL. DoomHub appends `/<room>`, so use values like `ws://localhost:1900/ipx` for a directly exposed local relay, `ws://localhost:8080/ipx` for the bundled Caddy proxy, or `wss://example.com/ipx` in production. Required in production.
 - `ROOM_TTL_MINUTES`: room expiry window.
 - `WAD_STORAGE_PATH`: WAD storage directory.
 - `BUNDLE_STORAGE_PATH`: `.jsdos` bundle storage directory.

@@ -10,7 +10,7 @@ if (process.env.DEV_USE_LOCAL_IPX !== "false") {
 
 const api = start("api", "npm", ["run", "dev:api"], {
   ...process.env,
-  IPX_WSS_URL: process.env.IPX_WSS_URL ?? "ws://localhost"
+  IPX_WSS_URL: process.env.IPX_WSS_URL ?? "ws://localhost:1900/ipx"
 });
 
 api.stdout.on("data", (chunk) => {

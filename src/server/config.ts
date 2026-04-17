@@ -23,7 +23,7 @@ function numberFromEnv(name: string, fallback: number): number {
 }
 
 export function loadConfig(): AppConfig {
-  const defaultIpxUrl = process.env.NODE_ENV === "production" ? "" : "ws://localhost";
+  const defaultIpxUrl = process.env.NODE_ENV === "production" ? "" : "ws://localhost:1900/ipx";
   const ipxWssUrl = process.env.IPX_WSS_URL ?? defaultIpxUrl;
   if (!ipxWssUrl) {
     throw new Error("IPX_WSS_URL is required in production.");

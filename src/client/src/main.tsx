@@ -318,9 +318,6 @@ function RoomPage({ slug }: { slug: string }) {
 
     dosRef.current = window.Dos(playerRef.current, {
       url: launch.bundleUrl,
-      ipxBackend: launch.ipxBackend,
-      ipx: launch.ipx,
-      room: launch.room,
       autoStart: true,
       mouseCapture: false,
       renderAspect: "Fit",
@@ -466,8 +463,8 @@ function getPlayerId(): string {
 
 function getIpxSocketUrl(launch: LaunchConfig): string {
   const backend = launch.ipx.find((item) => item.name === launch.ipxBackend) ?? launch.ipx[0];
-  const host = backend.host.endsWith("/") ? backend.host.slice(0, -1) : backend.host;
-  return `${host}:1900/ipx/${launch.room.replaceAll("@", "_")}`;
+  const baseUrl = backend.host.endsWith("/") ? backend.host.slice(0, -1) : backend.host;
+  return `${baseUrl}/${launch.room.replaceAll("@", "_")}`;
 }
 
 createRoot(document.getElementById("root")!).render(<App />);
