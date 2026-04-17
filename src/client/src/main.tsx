@@ -18,6 +18,7 @@ interface RoomRecord {
   episode: number;
   map: number;
   skill: number;
+  deathmatchMonsters: boolean;
   expiresAt: string;
 }
 
@@ -77,6 +78,7 @@ function HomePage() {
   const [episode, setEpisode] = useState(1);
   const [map, setMap] = useState(1);
   const [skill, setSkill] = useState(3);
+  const [deathmatchMonsters, setDeathmatchMonsters] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -103,7 +105,8 @@ function HomePage() {
           maxPlayers,
           episode,
           map,
-          skill
+          skill,
+          deathmatchMonsters
         })
       });
       window.location.assign(`/r/${response.room.slug}`);
@@ -120,6 +123,11 @@ function HomePage() {
     if (slug) {
       window.location.assign(`/r/${slug}`);
     }
+  }
+
+  function changeMode(nextMode: RoomMode) {
+    setMode(nextMode);
+    setDeathmatchMonsters(false);
   }
 
   return (
@@ -145,11 +153,22 @@ function HomePage() {
 
             <label>
               Mode
-              <select value={mode} onChange={(event) => setMode(event.target.value as RoomMode)}>
+              <select value={mode} onChange={(event) => changeMode(event.target.value as RoomMode)}>
                 <option value="cooperative">Co-op</option>
                 <option value="deathmatch">Deathmatch</option>
               </select>
             </label>
+
+            {mode === "deathmatch" ? (
+              <label className="checkbox-field">
+                <input
+                  type="checkbox"
+                  checked={deathmatchMonsters}
+                  onChange={(event) => setDeathmatchMonsters(event.target.checked)}
+                />
+                <span>Allow monsters in deathmatch</span>
+              </label>
+            ) : null}
 
             <div className="field-row">
               <label>
@@ -275,8 +294,8 @@ function RoomPage({ slug }: { slug: string }) {
       ipxBackend: launch.ipxBackend,
       ipx: launch.ipx,
       room: launch.room,
-      autoStart: false,
-      mouseCapture: true,
+      autoStart: true,
+      mouseCapture: false,
       renderAspect: "Fit",
       imageRendering: "pixelated",
       theme: "dark",

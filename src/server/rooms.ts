@@ -14,6 +14,7 @@ interface CreateRoomInput {
   episode?: number;
   map?: number;
   skill?: number;
+  deathmatchMonsters?: boolean;
 }
 
 interface RoomRow {
@@ -25,6 +26,7 @@ interface RoomRow {
   episode: number;
   map: number;
   skill: number;
+  deathmatch_monsters: number;
   created_at: string;
   expires_at: string;
   last_heartbeat_at: string | null;
@@ -77,6 +79,7 @@ export class RoomService {
     const episode = input.episode ?? 1;
     const map = input.map ?? 1;
     const skill = input.skill ?? 3;
+    const deathmatchMonsters = mode === "deathmatch" && input.deathmatchMonsters === true;
 
     if (!allowedModes.has(mode)) {
       throw new HttpError(400, "Mode must be cooperative or deathmatch.");
@@ -115,6 +118,7 @@ export class RoomService {
       episode,
       map,
       skill,
+      deathmatchMonsters,
       createdAt: now.toISOString(),
       expiresAt: expiresAt.toISOString(),
       lastHeartbeatAt: null
@@ -122,14 +126,17 @@ export class RoomService {
 
     this.db.prepare(`
       INSERT INTO rooms (
-        room_id, slug, wad_id, mode, max_players, episode, map, skill,
+        room_id, slug, wad_id, mode, max_players, episode, map, skill, deathmatch_monsters,
         created_at, expires_at, last_heartbeat_at
       )
       VALUES (
-        @roomId, @slug, @wadId, @mode, @maxPlayers, @episode, @map, @skill,
+        @roomId, @slug, @wadId, @mode, @maxPlayers, @episode, @map, @skill, @deathmatchMonsters,
         @createdAt, @expiresAt, @lastHeartbeatAt
       )
-    `).run(room);
+    `).run({
+      ...room,
+      deathmatchMonsters: room.deathmatchMonsters ? 1 : 0
+    });
 
     return room;
   }
@@ -214,6 +221,7 @@ function mapRoom(row: RoomRow): RoomRecord {
     episode: row.episode,
     map: row.map,
     skill: row.skill,
+    deathmatchMonsters: row.deathmatch_monsters === 1,
     createdAt: row.created_at,
     expiresAt: row.expires_at,
     lastHeartbeatAt: row.last_heartbeat_at

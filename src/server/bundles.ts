@@ -4,12 +4,14 @@ import JSZip from "jszip";
 import type { AppConfig } from "./config.js";
 import type { RoomRecord } from "./types.js";
 
+const bundleCacheVersion = 3;
+
 export async function getRoomBundlePath(room: RoomRecord, config: AppConfig): Promise<string> {
   const sourcePath = path.join(config.bundleStoragePath, `${room.wadId}.jsdos`);
   const generatedPath = path.join(
     config.bundleStoragePath,
     "generated",
-    `${room.wadId}-${room.mode}-${room.maxPlayers}-e${room.episode}m${room.map}-s${room.skill}.jsdos`
+    `${room.wadId}-v${bundleCacheVersion}-${room.mode}-${room.maxPlayers}-e${room.episode}m${room.map}-s${room.skill}-${room.deathmatchMonsters ? "monsters" : "nomonsters"}.jsdos`
   );
 
   const [sourceStat, generatedStat] = await Promise.all([
@@ -71,6 +73,9 @@ export function buildDoomLaunchCommand(room: RoomRecord): string {
 
   if (room.mode === "deathmatch") {
     parts.push("-deathmatch");
+    if (!room.deathmatchMonsters) {
+      parts.push("-nomonsters");
+    }
   }
 
   return parts.join(" ");

@@ -18,6 +18,7 @@ export interface RoomRecord {
   episode: number;
   map: number;
   skill: number;
+  deathmatchMonsters: boolean;
   createdAt: string;
   expiresAt: string;
   lastHeartbeatAt: string | null;

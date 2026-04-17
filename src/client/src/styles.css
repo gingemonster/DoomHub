@@ -91,6 +91,17 @@ label {
   font-weight: 700;
 }
 
+.checkbox-field {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.checkbox-field input {
+  width: auto;
+  min-height: auto;
+}
+
 h2 {
   margin: 0;
   font-size: 1.25rem;

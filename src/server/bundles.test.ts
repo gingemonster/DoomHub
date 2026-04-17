@@ -9,9 +9,15 @@ describe("buildDoomLaunchCommand", () => {
     );
   });
 
-  it("adds deathmatch mode for deathmatch rooms", () => {
+  it("starts deathmatch without monsters by default", () => {
     expect(buildDoomLaunchCommand(room({ mode: "deathmatch", episode: 2, map: 4, skill: 5 }))).toBe(
-      "IPXSETUP.EXE -nodes 2 -skill 5 -warp 2 4 -deathmatch"
+      "IPXSETUP.EXE -nodes 2 -skill 5 -warp 2 4 -deathmatch -nomonsters"
+    );
+  });
+
+  it("allows monsters in deathmatch rooms", () => {
+    expect(buildDoomLaunchCommand(room({ mode: "deathmatch", deathmatchMonsters: true }))).toBe(
+      "IPXSETUP.EXE -nodes 2 -skill 3 -warp 1 1 -deathmatch"
     );
   });
 });
@@ -26,6 +32,7 @@ function room(overrides: Partial<RoomRecord>): RoomRecord {
     episode: 1,
     map: 1,
     skill: 3,
+    deathmatchMonsters: false,
     createdAt: new Date(0).toISOString(),
     expiresAt: new Date(1).toISOString(),
     lastHeartbeatAt: null,

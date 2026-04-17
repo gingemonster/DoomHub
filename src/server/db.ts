@@ -27,6 +27,7 @@ export function openDatabase(config: AppConfig): DatabaseType {
       episode INTEGER NOT NULL,
       map INTEGER NOT NULL,
       skill INTEGER NOT NULL,
+      deathmatch_monsters INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       expires_at TEXT NOT NULL,
       last_heartbeat_at TEXT
@@ -40,8 +41,16 @@ export function openDatabase(config: AppConfig): DatabaseType {
     );
   `);
 
+  ensureRoomColumns(db);
   seedSharewareWad(db);
   return db;
+}
+
+function ensureRoomColumns(db: DatabaseType): void {
+  const columns = db.prepare("PRAGMA table_info(rooms)").all() as Array<{ name: string }>;
+  if (!columns.some((column) => column.name === "deathmatch_monsters")) {
+    db.prepare("ALTER TABLE rooms ADD COLUMN deathmatch_monsters INTEGER NOT NULL DEFAULT 0").run();
+  }
 }
 
 function seedSharewareWad(db: DatabaseType): void {

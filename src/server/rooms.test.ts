@@ -29,6 +29,14 @@ describe("RoomService", () => {
     expect(room.slug).toMatch(/^[A-Z2-9]{8}$/);
     expect(room.maxPlayers).toBe(4);
     expect(room.map).toBe(3);
+    expect(room.deathmatchMonsters).toBe(false);
+  });
+
+  it("stores deathmatch monster preference only for deathmatch rooms", () => {
+    const service = createService();
+
+    expect(service.createRoom({ mode: "deathmatch", deathmatchMonsters: true }).deathmatchMonsters).toBe(true);
+    expect(service.createRoom({ mode: "cooperative", deathmatchMonsters: true }).deathmatchMonsters).toBe(false);
   });
 
   it("rejects player counts outside vanilla multiplayer limits", () => {
