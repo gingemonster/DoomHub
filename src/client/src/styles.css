@@ -220,9 +220,19 @@ h1 {
 }
 
 .back-link {
-  color: #d9b64f;
-  font-weight: 900;
+  display: inline-grid;
+  align-items: center;
+  width: 134px;
+  min-width: 134px;
   text-decoration: none;
+}
+
+.back-link img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 52px;
+  object-fit: contain;
 }
 
 .room-actions {

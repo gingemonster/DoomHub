@@ -324,7 +324,9 @@ function RoomPage({ slug }: { slug: string }) {
   return (
     <main className="room-page">
       <header className="room-header">
-        <a href="/" className="back-link">DoomHub</a>
+        <a href="/" className="back-link" aria-label="DoomHub home">
+          <img src="/doomhublogosmall.png" alt="DoomHub" />
+        </a>
         <div>
           <p className="eyebrow">Room {slug}</p>
           <h1>{room ? `${room.mode} E${room.episode}M${room.map}` : "Loading room..."}</h1>
