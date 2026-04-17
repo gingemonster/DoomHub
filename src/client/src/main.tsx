@@ -118,11 +118,12 @@ function HomePage() {
 
   return (
     <main className="page-shell">
-      <section className="home-grid">
-        <div className="control-panel">
-          <p className="eyebrow">Private IPX rooms</p>
-          <h1>Start Doom with the people you invite.</h1>
+      <section className="home-layout">
+        <header className="home-header">
+          <img className="logo-mark" src="/doomhublogo.png" alt="DoomHub" />
+        </header>
 
+        <div className="home-panels">
           <form onSubmit={createRoom} className="room-form">
             <h2>Create a Room</h2>
             <label>
@@ -173,21 +174,18 @@ function HomePage() {
 
           <form onSubmit={joinRoom} className="join-form">
             <h2>Join a Room</h2>
+            <p className="form-help">
+              Ask the friend who created the room for their room code or invite link.
+            </p>
             <label>
               Room code
               <input value={joinCode} onChange={(event) => setJoinCode(event.target.value)} placeholder="ABCD2345" />
             </label>
             <button type="submit">Join</button>
           </form>
-
-          {error ? <p className="error">{error}</p> : null}
         </div>
 
-        <img
-          className="side-image"
-          alt="Dim industrial corridor"
-          src="https://images.unsplash.com/photo-1517999144091-3d9dca6d1e43?auto=format&fit=crop&w=1200&q=80"
-        />
+        {error ? <p className="error">{error}</p> : null}
       </section>
     </main>
   );

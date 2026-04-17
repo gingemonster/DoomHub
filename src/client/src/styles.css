@@ -1,6 +1,6 @@
 :root {
   color: #f4f1e8;
-  background: #11100e;
+  background: #000;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
@@ -14,9 +14,14 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background:
-    linear-gradient(135deg, rgba(18, 18, 16, 0.92), rgba(46, 14, 12, 0.82)),
-    #11100e;
+  background: #000;
+}
+
+body,
+button,
+input,
+select {
+  letter-spacing: 0;
 }
 
 button,
@@ -25,19 +30,47 @@ select {
   font: inherit;
 }
 
-button {
+.page-shell button,
+.room-header button,
+.start-panel button {
+  appearance: none;
   min-height: 44px;
-  border: 0;
+  border: 2px solid #ffd75a !important;
   border-radius: 6px;
-  background: #d9b64f;
-  color: #15120b;
-  font-weight: 800;
+  background: #ffd75a !important;
+  background-color: #ffd75a !important;
+  background-image: none !important;
+  color: #000 !important;
+  font-weight: 900;
   cursor: pointer;
+  box-shadow: 0 0 0 1px rgba(8, 8, 6, 0.8) inset;
+  opacity: 1 !important;
+  text-shadow: none !important;
+  -webkit-text-fill-color: #000 !important;
 }
 
-button:disabled {
+.page-shell button:hover,
+.room-header button:hover,
+.start-panel button:hover {
+  background: #ffe586 !important;
+  background-color: #ffe586 !important;
+  background-image: none !important;
+  border-color: #ffe586 !important;
+  color: #000 !important;
+  -webkit-text-fill-color: #000 !important;
+}
+
+.page-shell button:disabled,
+.room-header button:disabled,
+.start-panel button:disabled {
   cursor: not-allowed;
-  opacity: 0.6;
+  background: #a88d32 !important;
+  background-color: #a88d32 !important;
+  background-image: none !important;
+  border-color: #a88d32 !important;
+  color: #000 !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: #000 !important;
 }
 
 input,
@@ -68,19 +101,35 @@ h2 {
   padding: 28px;
 }
 
-.home-grid {
+.home-layout {
   display: grid;
-  grid-template-columns: minmax(320px, 540px) minmax(320px, 1fr);
-  gap: 28px;
+  grid-template-rows: auto 1fr auto;
+  gap: 30px;
   min-height: calc(100vh - 56px);
-  align-items: stretch;
+  width: min(1080px, 100%);
+  margin: 0 auto;
+  align-items: start;
 }
 
-.control-panel {
-  align-self: center;
+.home-header {
   display: grid;
-  gap: 22px;
-  width: 100%;
+  justify-items: center;
+  gap: 10px;
+  padding-top: 16px;
+  text-align: center;
+}
+
+.logo-mark {
+  width: min(280px, 78vw);
+  height: auto;
+  object-fit: contain;
+}
+
+.home-panels {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  gap: 24px;
+  align-items: start;
 }
 
 .eyebrow {
@@ -93,8 +142,8 @@ h2 {
 
 h1 {
   margin: 0;
-  max-width: 12ch;
-  font-size: clamp(2.4rem, 4rem, 4rem);
+  max-width: none;
+  font-size: 3.2rem;
   line-height: 0.98;
 }
 
@@ -112,6 +161,13 @@ h1 {
   grid-column: 1 / -1;
 }
 
+.form-help {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #d6d1c2;
+  line-height: 1.45;
+}
+
 .field-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -121,15 +177,6 @@ h1 {
 .join-form {
   grid-template-columns: 1fr 120px;
   align-items: end;
-}
-
-.side-image {
-  width: 100%;
-  height: 100%;
-  min-height: 520px;
-  object-fit: cover;
-  border-radius: 8px;
-  border: 1px solid #4f5248;
 }
 
 .error {
@@ -235,7 +282,8 @@ h1 {
     padding: 16px;
   }
 
-  .home-grid,
+  .home-layout,
+  .home-panels,
   .join-form,
   .room-header {
     grid-template-columns: 1fr;
@@ -243,10 +291,6 @@ h1 {
 
   h1 {
     font-size: 2.6rem;
-  }
-
-  .side-image {
-    min-height: 220px;
   }
 
   .room-actions {
