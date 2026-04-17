@@ -33,6 +33,8 @@ The compose file mounts:
 - `./data/bundles` for generated or copied `.jsdos` bundles.
 - A Docker volume for SQLite metadata.
 
+The web image does not include local `data` contents. Keep WADs and `.jsdos` bundles mounted at runtime instead of baking them into the image.
+
 By default, Compose exposes the app directly:
 
 - Web app and API: `http://localhost:3000`
