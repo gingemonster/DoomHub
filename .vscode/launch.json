@@ -3,13 +3,10 @@
   "configurations": [
     {
       "name": "Launch DoomHub Dev",
-      "type": "node",
+      "type": "node-terminal",
       "request": "launch",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "command": "npm run dev",
       "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal",
-      "skipFiles": ["<node_internals>/**"],
       "serverReadyAction": {
         "pattern": "Local:\\s+(http://localhost:5173/?)",
         "uriFormat": "%s",
