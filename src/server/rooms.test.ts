@@ -91,14 +91,14 @@ describe("RoomService", () => {
     expect(service.heartbeat(room.slug, "player-b")).toEqual({ activePlayers: 2 });
   });
 
-  it("returns a named js-dos IPX backend with the configured host", async () => {
-    const service = await createService({ ipxWssUrl: "ws://localhost" });
+  it("returns a named js-dos IPX backend with the configured websocket base URL", async () => {
+    const service = await createService({ ipxWssUrl: "ws://localhost:1900/ipx" });
     const room = await service.createRoom({});
 
     expect(service.getLaunchConfig(room.slug)).toMatchObject({
       ipxBackend: "DoomHub",
       room: room.slug,
-      ipx: [{ name: "DoomHub", host: "ws://localhost" }]
+      ipx: [{ name: "DoomHub", host: "ws://localhost:1900/ipx" }]
     });
   });
 
@@ -129,7 +129,7 @@ async function createService(overrides: Partial<AppConfig> & { bundles?: Record<
   const { bundles: _bundles, ...configOverrides } = overrides;
   const config: AppConfig = {
     publicBaseUrl: "http://localhost:5173",
-    ipxWssUrl: "ws://localhost",
+    ipxWssUrl: "ws://localhost:1900/ipx",
     roomTtlMinutes: 180,
     wadStoragePath: path.join(dir, "wads"),
     bundleStoragePath,

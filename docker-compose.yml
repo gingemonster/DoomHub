@@ -3,7 +3,7 @@ services:
     build: .
     environment:
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
-      IPX_WSS_URL: ${IPX_WSS_URL:-ws://localhost}
+      IPX_WSS_URL: ${IPX_WSS_URL:-ws://localhost:1900/ipx}
       ROOM_TTL_MINUTES: ${ROOM_TTL_MINUTES:-180}
       WAD_STORAGE_PATH: /data/wads
       BUNDLE_STORAGE_PATH: /data/bundles
