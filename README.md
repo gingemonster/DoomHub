@@ -11,7 +11,7 @@ DoomHub runs the original DOS Doom inside js-dos. It is not a modern source port
 3. Run `make dev`.
 4. Open `http://localhost:5173`.
 
-The API runs on `http://localhost:3000`; Vite proxies `/api` to it.
+The API runs on `http://localhost:3000`. In local development, the frontend server on `http://localhost:5173` forwards `/api` requests to that API server.
 The local js-dos IPX relay is started through Docker on `ws://localhost:1900/ipx/<room>` by default.
 Set `DEV_USE_LOCAL_IPX=false` if you want to use `IPX_WSS_URL` manually instead.
 You can confirm the active relay with `curl http://localhost:3000/api/health`.
