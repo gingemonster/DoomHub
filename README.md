@@ -52,6 +52,25 @@ That starts Compose with `COMPOSE_PROFILES=managed-proxy` and exposes Caddy on `
 
 Room creation scans direct `.jsdos` files under `data/bundles` and lists them in the WAD dropdown. For example, add `doom-shareware.jsdos` or `doom-full.jsdos` under `data/bundles`. Generated room-specific bundles are written under `data/bundles/generated` and are not listed.
 
+## Doom js-dos bundles
+
+DoomHub launches Doom through js-dos bundles. A `.jsdos` file is a ZIP archive containing the DOS game files and js-dos configuration. js-dos requires `.jsdos/dosbox.conf` inside the archive and can also read optional metadata from `.jsdos/jsdos.json`. See the js-dos bundle docs: https://js-dos.com/v7/build/docs/jsdos-bundle/
+
+For a quick Doom test bundle, download:
+
+```sh
+mkdir -p data/bundles
+curl -L https://github.com/linuxfandudeguy/doomonline/raw/refs/heads/master/bundle.jsdos -o data/bundles/doom-shareware.jsdos
+```
+
+Keep licensed game data outside the Docker image. Put `.jsdos` files in `data/bundles` on the host, or mount that directory on the server.
+
+## Simple deployment
+
+1. Build and install the Docker images on the target server. From macOS, use the Linux export flow below if the server cannot build the images itself.
+2. Put a reverse proxy in front of the app. You can use the included Caddy config, or your own proxy such as Nginx Proxy Manager. The proxy must provide SSL for the website and route the `/ipx` websocket path to the IPX relay.
+3. Get a Doom `.jsdos` bundle and mount it under `data/bundles` on the server. The quick test bundle above can be used as `doom-shareware.jsdos`.
+
 ## Linux Docker image exports
 
 From macOS, use Buildx when you need Linux images for another server.
