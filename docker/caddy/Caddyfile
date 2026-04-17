@@ -1,0 +1,9 @@
+:80 {
+  encode zstd gzip
+
+  handle_path /ipx* {
+    reverse_proxy ipx:9001
+  }
+
+  reverse_proxy web:3000
+}

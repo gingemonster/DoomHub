@@ -1,0 +1,37 @@
+services:
+  web:
+    build: .
+    environment:
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
+      IPX_WSS_URL: ${IPX_WSS_URL:-ws://localhost:9001}
+      ROOM_TTL_MINUTES: ${ROOM_TTL_MINUTES:-180}
+      WAD_STORAGE_PATH: /data/wads
+      BUNDLE_STORAGE_PATH: /data/bundles
+      DATABASE_PATH: /data/doomhub.sqlite
+      PORT: 3000
+    volumes:
+      - doomhub-data:/data
+      - ./data/wads:/data/wads
+      - ./data/bundles:/data/bundles
+    ports:
+      - "3000:3000"
+
+  ipx:
+    build: ./docker/ipx
+    ports:
+      - "9001:9001"
+
+  caddy:
+    image: caddy:2-alpine
+    profiles:
+      - managed-proxy
+    depends_on:
+      - web
+      - ipx
+    ports:
+      - "${PUBLIC_HTTP_PORT:-8080}:80"
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+
+volumes:
+  doomhub-data:

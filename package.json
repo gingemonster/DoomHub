@@ -1,0 +1,46 @@
+{
+  "name": "doomhub",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c green,cyan \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "tsx watch src/server/index.ts",
+    "dev:web": "vite --host 0.0.0.0",
+    "build": "npm run build:web && npm run build:api",
+    "build:web": "vite build",
+    "build:api": "tsc -p tsconfig.server.json",
+    "start": "node dist/server/index.js",
+    "test": "vitest run --config vitest.config.ts",
+    "check": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up --build",
+    "docker:up:proxy": "PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-http://localhost:8080} IPX_WSS_URL=${IPX_WSS_URL:-ws://localhost:8080/ipx} COMPOSE_PROFILES=managed-proxy docker compose up --build",
+    "docker:down": "docker compose --profile managed-proxy down"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.1.0",
+    "@fastify/static": "^9.1.1",
+    "better-sqlite3": "^12.5.0",
+    "fastify": "^5.8.5",
+    "js-dos": "^8.3.20",
+    "nanoid": "^5.1.6",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^24.10.3",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "concurrently": "^9.2.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.8",
+    "vitest": "^4.0.15"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
