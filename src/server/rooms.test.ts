@@ -44,6 +44,17 @@ describe("RoomService", () => {
     expect(service.heartbeat(room.slug, "player-b")).toEqual({ activePlayers: 2 });
   });
 
+  it("returns a named js-dos IPX backend with the configured host", () => {
+    const service = createService({ ipxWssUrl: "ws://localhost" });
+    const room = service.createRoom({});
+
+    expect(service.getLaunchConfig(room.slug)).toMatchObject({
+      ipxBackend: "DoomHub",
+      room: room.slug,
+      ipx: [{ name: "DoomHub", host: "ws://localhost" }]
+    });
+  });
+
   it("hides private rooms unless visibility is enabled", () => {
     const hidden = createService({ visiblePrivateRooms: false });
     hidden.createRoom({});
@@ -60,7 +71,7 @@ function createService(overrides: Partial<AppConfig> = {}) {
   tempDirs.push(dir);
   const config: AppConfig = {
     publicBaseUrl: "http://localhost:5173",
-    ipxWssUrl: "ws://localhost:9001",
+    ipxWssUrl: "ws://localhost",
     roomTtlMinutes: 180,
     wadStoragePath: path.join(dir, "wads"),
     bundleStoragePath: path.join(dir, "bundles"),

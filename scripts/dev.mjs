@@ -1,9 +1,17 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 
 const children = new Set();
 let shuttingDown = false;
+let startedIpx = false;
 
-const api = start("api", "npm", ["run", "dev:api"]);
+if (process.env.DEV_USE_LOCAL_IPX !== "false") {
+  ensureLocalIpxRelay();
+}
+
+const api = start("api", "npm", ["run", "dev:api"], {
+  ...process.env,
+  IPX_WSS_URL: process.env.IPX_WSS_URL ?? "ws://localhost"
+});
 
 api.stdout.on("data", (chunk) => {
   if (chunk.toString().includes("Server listening")) {
@@ -36,10 +44,10 @@ function startWebOnce() {
   });
 }
 
-function start(name, command, args) {
+function start(name, command, args, env = process.env) {
   const child = spawn(command, args, {
     cwd: process.cwd(),
-    env: process.env,
+    env,
     stdio: ["inherit", "pipe", "pipe"]
   });
 
@@ -61,9 +69,24 @@ function writePrefixed(name, chunk) {
 
 function stopOnAddressInUse(chunk) {
   if (chunk.toString().includes("EADDRINUSE")) {
-    console.error("[dev] Port 3000 is already in use. Stop the existing dev server before launching DoomHub.");
+    console.error("[dev] A required port is already in use. Stop the existing dev server before launching DoomHub.");
     shutdown(1);
   }
+}
+
+function ensureLocalIpxRelay() {
+  console.log("[ipx] Starting local js-dos IPX relay on ws://localhost:1900/ipx/<room>");
+  const result = spawnSync("docker", ["compose", "up", "-d", "--build", "ipx"], {
+    cwd: process.cwd(),
+    stdio: "inherit"
+  });
+
+  if (result.status !== 0) {
+    console.error("[ipx] Could not start the local IPX relay. Start Docker Desktop or set DEV_USE_LOCAL_IPX=false.");
+    process.exit(result.status ?? 1);
+  }
+
+  startedIpx = true;
 }
 
 function shutdown(code = 0) {
@@ -74,6 +97,13 @@ function shutdown(code = 0) {
   shuttingDown = true;
   for (const child of children) {
     child.kill("SIGTERM");
+  }
+
+  if (startedIpx && process.env.DEV_KEEP_IPX !== "true") {
+    spawnSync("docker", ["compose", "stop", "ipx"], {
+      cwd: process.cwd(),
+      stdio: "ignore"
+    });
   }
 
   setTimeout(() => process.exit(code), 250);

@@ -3,7 +3,7 @@ services:
     build: .
     environment:
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
-      IPX_WSS_URL: ${IPX_WSS_URL:-ws://localhost:9001}
+      IPX_WSS_URL: ${IPX_WSS_URL:-ws://localhost}
       ROOM_TTL_MINUTES: ${ROOM_TTL_MINUTES:-180}
       WAD_STORAGE_PATH: /data/wads
       BUNDLE_STORAGE_PATH: /data/bundles
@@ -19,7 +19,7 @@ services:
   ipx:
     build: ./docker/ipx
     ports:
-      - "9001:9001"
+      - "1900:1900"
 
   caddy:
     image: caddy:2-alpine

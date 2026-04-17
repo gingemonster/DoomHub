@@ -38,6 +38,10 @@ interface DosProps {
   setFullScreen(fullScreen: boolean): void;
 }
 
+interface CommandInterface {
+  networkConnect(networkType: number, address: string): Promise<void>;
+}
+
 interface DosOptions {
   url: string;
   ipxBackend: string;
@@ -48,12 +52,14 @@ interface DosOptions {
   renderAspect: "Fit" | "4/3";
   imageRendering: "pixelated" | "smooth";
   theme: "dark" | "retro";
-  onEvent?: (event: string, arg?: unknown) => void;
+  noNetworking: boolean;
+  onEvent?: (event: string, arg?: CommandInterface | boolean) => void;
 }
 
 declare global {
   interface Window {
     Dos?: (element: HTMLDivElement, options: Partial<DosOptions>) => DosProps;
+    __DOOMHUB_LAUNCH__?: LaunchConfig;
   }
 }
 
@@ -200,6 +206,7 @@ function RoomPage({ slug }: { slug: string }) {
   const [activePlayers, setActivePlayers] = useState(0);
   const playerRef = useRef<HTMLDivElement | null>(null);
   const dosRef = useRef<DosProps | null>(null);
+  const ipxConnectedRef = useRef(false);
 
   useEffect(() => {
     fetchJson<{ room: RoomRecord; launch: LaunchConfig }>(`/api/rooms/${slug}`)
@@ -255,6 +262,14 @@ function RoomPage({ slug }: { slug: string }) {
       return;
     }
 
+    const ipxSocketUrl = getIpxSocketUrl(launch);
+    const isDev = Boolean((import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV);
+    if (isDev) {
+      window.__DOOMHUB_LAUNCH__ = launch;
+      console.debug("[DoomHub] js-dos launch config", launch);
+      console.debug("[DoomHub] js-dos IPX socket", ipxSocketUrl);
+    }
+
     dosRef.current = window.Dos(playerRef.current, {
       url: launch.bundleUrl,
       ipxBackend: launch.ipxBackend,
@@ -265,12 +280,20 @@ function RoomPage({ slug }: { slug: string }) {
       renderAspect: "Fit",
       imageRendering: "pixelated",
       theme: "dark",
-      onEvent: (event) => {
+      noNetworking: false,
+      onEvent: (event, arg) => {
         if (event === "bnd-play") {
           void fetchJson(`/api/rooms/${slug}/heartbeat`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ playerId })
+          });
+        }
+        if (event === "ci-ready" && arg && typeof arg !== "boolean" && !ipxConnectedRef.current) {
+          ipxConnectedRef.current = true;
+          arg.networkConnect(0, ipxSocketUrl).catch((err: Error) => {
+            ipxConnectedRef.current = false;
+            setError(`Could not connect to the IPX relay at ${ipxSocketUrl}: ${err.message}`);
           });
         }
       }
@@ -279,6 +302,7 @@ function RoomPage({ slug }: { slug: string }) {
     return () => {
       void dosRef.current?.stop();
       dosRef.current = null;
+      ipxConnectedRef.current = false;
     };
   }, [launch, playerStarted, slug]);
 
@@ -324,7 +348,7 @@ function RoomPage({ slug }: { slug: string }) {
             <p className="eyebrow">Ready room</p>
             <h2>Room {slug}</h2>
             <p>
-              Share the link, then start Doom when the bundle is installed.
+              Share the link, then start Doom. The game waits for {room.maxPlayers} players before launching.
             </p>
             <button type="button" onClick={startPlayer}>
               Start Doom
@@ -361,6 +385,12 @@ function getPlayerId(): string {
   const created = crypto.randomUUID();
   window.localStorage.setItem(key, created);
   return created;
+}
+
+function getIpxSocketUrl(launch: LaunchConfig): string {
+  const backend = launch.ipx.find((item) => item.name === launch.ipxBackend) ?? launch.ipx[0];
+  const host = backend.host.endsWith("/") ? backend.host.slice(0, -1) : backend.host;
+  return `${host}:1900/ipx/${launch.room.replaceAll("@", "_")}`;
 }
 
 createRoot(document.getElementById("root")!).render(<App />);

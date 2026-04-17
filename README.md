@@ -10,6 +10,9 @@ Docker-hosted browser Doom rooms using js-dos and IPX room configuration.
 4. Open `http://localhost:5173`.
 
 The API runs on `http://localhost:3000`; Vite proxies `/api` to it.
+The local js-dos IPX relay is started through Docker on `ws://localhost:1900/ipx/<room>` by default.
+Set `DEV_USE_LOCAL_IPX=false` if you want to use `IPX_WSS_URL` manually instead.
+You can confirm the active relay with `curl http://localhost:3000/api/health`.
 
 ## Build and test
 
@@ -33,9 +36,9 @@ The compose file mounts:
 By default, Compose exposes the app directly:
 
 - Web app and API: `http://localhost:3000`
-- IPX relay: `ws://localhost:9001`
+- IPX relay: `ws://localhost:1900/ipx/<room>`
 
-Use an external proxy by pointing it at those services. If the proxy runs on the host, target `localhost:3000` for HTTP and `localhost:9001` for the IPX websocket. If it runs in the same Docker network, target `web:3000` and `ipx:9001`.
+Use an external proxy by pointing it at those services. If the proxy runs on the host, target `localhost:3000` for HTTP and `localhost:1900` for the IPX websocket. If it runs in the same Docker network, target `web:3000` and `ipx:1900`.
 
 The bundled Caddy proxy is optional:
 
@@ -43,7 +46,7 @@ The bundled Caddy proxy is optional:
 make docker-up-proxy
 ```
 
-That starts Compose with `COMPOSE_PROFILES=managed-proxy`, exposes Caddy on `http://localhost:8080`, and sets room links plus js-dos IPX config to use `/ipx` through that proxy. Override the port with `PUBLIC_HTTP_PORT=8081 make docker-up-proxy`.
+That starts Compose with `COMPOSE_PROFILES=managed-proxy` and exposes Caddy on `http://localhost:8080`. Override the port with `PUBLIC_HTTP_PORT=8081 make docker-up-proxy`.
 
 For the MVP, room creation and js-dos launch configuration work before a playable bundle exists. Add a bundle named `doom-shareware.jsdos` under `data/bundles` to let `/api/rooms/:slug/bundle` serve it.
 
@@ -52,7 +55,7 @@ For the MVP, room creation and js-dos launch configuration work before a playabl
 Copy `.env.example` to `.env` for local overrides.
 
 - `PUBLIC_BASE_URL`: public origin used in generated room links.
-- `IPX_WSS_URL`: js-dos IPX relay URL.
+- `IPX_WSS_URL`: browser-accessible js-dos IPX relay host. js-dos appends `:1900/ipx/<room>`, so use values like `ws://localhost` locally or `wss://example.com` in production. Required in production.
 - `ROOM_TTL_MINUTES`: room expiry window.
 - `WAD_STORAGE_PATH`: WAD storage directory.
 - `BUNDLE_STORAGE_PATH`: `.jsdos` bundle storage directory.

@@ -146,7 +146,7 @@ export class RoomService {
     const room = this.getRoom(slug);
     return {
       bundleUrl: `/api/rooms/${room.slug}/bundle`,
-      ipxBackend: this.config.ipxWssUrl,
+      ipxBackend: "DoomHub",
       room: room.slug,
       ipx: [{ name: "DoomHub", host: this.config.ipxWssUrl }]
     };

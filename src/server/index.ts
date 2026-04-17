@@ -14,6 +14,7 @@ export async function buildServer() {
   const app = fastify({ logger: true });
   const db = openDatabase(config);
   const rooms = new RoomService(db, config);
+  app.log.info({ ipxWssUrl: config.ipxWssUrl }, "Using js-dos IPX relay");
 
   await app.register(cors, { origin: true });
   await registerRoutes(app, rooms, config);

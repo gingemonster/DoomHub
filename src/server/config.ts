@@ -23,9 +23,15 @@ function numberFromEnv(name: string, fallback: number): number {
 }
 
 export function loadConfig(): AppConfig {
+  const defaultIpxUrl = process.env.NODE_ENV === "production" ? "" : "ws://localhost";
+  const ipxWssUrl = process.env.IPX_WSS_URL ?? defaultIpxUrl;
+  if (!ipxWssUrl) {
+    throw new Error("IPX_WSS_URL is required in production.");
+  }
+
   return {
     publicBaseUrl: process.env.PUBLIC_BASE_URL ?? "http://localhost:5173",
-    ipxWssUrl: process.env.IPX_WSS_URL ?? "wss://netherlands.dos.zone",
+    ipxWssUrl,
     roomTtlMinutes: numberFromEnv("ROOM_TTL_MINUTES", 180),
     wadStoragePath: path.resolve(process.env.WAD_STORAGE_PATH ?? "./data/wads"),
     bundleStoragePath: path.resolve(process.env.BUNDLE_STORAGE_PATH ?? "./data/bundles"),

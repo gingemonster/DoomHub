@@ -1,12 +1,16 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { FastifyInstance } from "fastify";
+import { getRoomBundlePath } from "./bundles.js";
 import type { AppConfig } from "./config.js";
 import { HttpError } from "./errors.js";
 import type { RoomService } from "./rooms.js";
 
 export async function registerRoutes(app: FastifyInstance, rooms: RoomService, config: AppConfig): Promise<void> {
-  app.get("/api/health", async () => ({ ok: true }));
+  app.get("/api/health", async () => ({
+    ok: true,
+    ipxWssUrl: config.ipxWssUrl
+  }));
 
   app.get("/api/wads", async () => rooms.listWads());
 
@@ -71,6 +75,7 @@ export async function registerRoutes(app: FastifyInstance, rooms: RoomService, c
         });
     }
 
-    return reply.type("application/octet-stream").send(fs.createReadStream(bundlePath));
+    const roomBundlePath = await getRoomBundlePath(room, config);
+    return reply.type("application/octet-stream").send(fs.createReadStream(roomBundlePath));
   });
 }
