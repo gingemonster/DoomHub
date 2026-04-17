@@ -1,10 +1,10 @@
 # DoomHub
 
-Docker-hosted browser Doom rooms using js-dos and IPX room configuration.
+Docker-hosted browser based doom for playing with up to 4 players online in their web browsers with no client install required.
 
 DoomHub runs the original DOS Doom inside js-dos. It is not a modern source port, so gameplay and networking are limited to the original Doom multiplayer feature set.
 
-## Local run
+## Running it locally for development
 
 1. Install Node 22 or newer.
 2. Run `make install`.
@@ -23,7 +23,7 @@ You can confirm the active relay with `curl http://localhost:3000/api/health`.
 - `make build`: Vite frontend build plus server compilation.
 - `make start`: serve the production build on `http://localhost:3000`.
 
-## Docker
+## Running it in Docker
 
 - `make docker-build`
 - `make docker-up`
@@ -32,7 +32,7 @@ You can confirm the active relay with `curl http://localhost:3000/api/health`.
 The compose file mounts:
 
 - `./data/wads` for operator-supplied WAD files.
-- `./data/bundles` for generated or copied `.jsdos` bundles.
+- `./data/bundles` for generated or copied `.jsdos` bundles (see below).
 - A Docker volume for SQLite metadata.
 
 The web image does not include local `data` contents. Keep WADs and `.jsdos` bundles mounted at runtime instead of baking them into the image.
@@ -70,7 +70,7 @@ Keep licensed game data outside the Docker image. Put `.jsdos` files in `data/bu
 ## Simple deployment
 
 1. Build and install the Docker images on the target server. Use the Linux export flow below if the server cannot build the images itself.
-2. Put a reverse proxy in front of the app. You can use the included Caddy config, or your own proxy such as Nginx Proxy Manager. The proxy must provide SSL for the website and route the `/ipx` websocket path to the IPX relay.
+2. Put a reverse proxy in front of the app. You can use the included Caddy config, or your own proxy such as Nginx Proxy Manager. The proxy must provide SSL for the website and route the `/ipx` websocket path to the IPX relay on port 1900 (unless you change the default).
 3. Get a Doom `.jsdos` bundle and mount it under `data/bundles` on the server. The quick test bundle above can be used as `doom-shareware.jsdos`.
 
 ## Linux Docker image exports
