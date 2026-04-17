@@ -4,7 +4,7 @@ Docker-hosted browser Doom rooms using js-dos and IPX room configuration.
 
 DoomHub runs the original DOS Doom inside js-dos. It is not a modern source port, so gameplay and networking are limited to the original Doom multiplayer feature set.
 
-## Local macOS run
+## Local run
 
 1. Install Node 22 or newer.
 2. Run `make install`.
@@ -69,13 +69,13 @@ Keep licensed game data outside the Docker image. Put `.jsdos` files in `data/bu
 
 ## Simple deployment
 
-1. Build and install the Docker images on the target server. From macOS, use the Linux export flow below if the server cannot build the images itself.
+1. Build and install the Docker images on the target server. Use the Linux export flow below if the server cannot build the images itself.
 2. Put a reverse proxy in front of the app. You can use the included Caddy config, or your own proxy such as Nginx Proxy Manager. The proxy must provide SSL for the website and route the `/ipx` websocket path to the IPX relay.
 3. Get a Doom `.jsdos` bundle and mount it under `data/bundles` on the server. The quick test bundle above can be used as `doom-shareware.jsdos`.
 
 ## Linux Docker image exports
 
-From macOS, use Buildx when you need Linux images for another server.
+Use Buildx when you need Linux images for another server.
 
 Build Linux images into the local Docker image store:
 
