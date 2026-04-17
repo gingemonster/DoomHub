@@ -228,6 +228,7 @@ function RoomPage({ slug }: { slug: string }) {
   const [bundleStatus, setBundleStatus] = useState<BundleStatus | null>(null);
   const [playerStarted, setPlayerStarted] = useState(false);
   const [activePlayers, setActivePlayers] = useState(0);
+  const [showControls, setShowControls] = useState(false);
   const playerRef = useRef<HTMLDivElement | null>(null);
   const dosRef = useRef<DosProps | null>(null);
   const ipxConnectedRef = useRef(false);
@@ -357,6 +358,7 @@ function RoomPage({ slug }: { slug: string }) {
         </div>
         <div className="room-actions">
           <span>{activePlayers} active</span>
+          <button type="button" onClick={() => setShowControls(true)}>Controls</button>
           <button type="button" onClick={() => navigator.clipboard.writeText(shareUrl)}>Copy Link</button>
           <button type="button" onClick={() => dosRef.current?.setFullScreen(true)}>Fullscreen</button>
         </div>
@@ -383,7 +385,31 @@ function RoomPage({ slug }: { slug: string }) {
         ) : null}
         <div ref={playerRef} className="dos-player" />
       </section>
+      {showControls ? <ControlsDialog onClose={() => setShowControls(false)} /> : null}
     </main>
+  );
+}
+
+function ControlsDialog({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <section className="controls-dialog" role="dialog" aria-modal="true" aria-labelledby="controls-title" onClick={(event) => event.stopPropagation()}>
+        <div className="dialog-header">
+          <h2 id="controls-title">Controls</h2>
+          <button type="button" onClick={onClose} aria-label="Close controls">Close</button>
+        </div>
+        <dl className="controls-list">
+          <div><dt>Move</dt><dd>Arrow keys</dd></div>
+          <div><dt>Fire</dt><dd>S</dd></div>
+          <div><dt>Open doors / use</dt><dd>Space</dd></div>
+          <div><dt>Run</dt><dd>Right Shift</dd></div>
+          <div><dt>Strafe</dt><dd>Left Alt</dd></div>
+          <div><dt>Strafe left / right</dt><dd>A / D</dd></div>
+          <div><dt>Weapons</dt><dd>Number keys</dd></div>
+          <div><dt>Menu</dt><dd>Esc</dd></div>
+        </dl>
+      </section>
+    </div>
   );
 }
 

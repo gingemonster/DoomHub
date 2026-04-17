@@ -32,7 +32,8 @@ select {
 
 .page-shell button,
 .room-header button,
-.start-panel button {
+.start-panel button,
+.dialog-header button {
   appearance: none;
   min-height: 44px;
   border: 2px solid #ffd75a !important;
@@ -51,7 +52,8 @@ select {
 
 .page-shell button:hover,
 .room-header button:hover,
-.start-panel button:hover {
+.start-panel button:hover,
+.dialog-header button:hover {
   background: #ffe586 !important;
   background-color: #ffe586 !important;
   background-image: none !important;
@@ -62,7 +64,8 @@ select {
 
 .page-shell button:disabled,
 .room-header button:disabled,
-.start-panel button:disabled {
+.start-panel button:disabled,
+.dialog-header button:disabled {
   cursor: not-allowed;
   background: #a88d32 !important;
   background-color: #a88d32 !important;
@@ -264,6 +267,63 @@ h1 {
 
 .room-error {
   margin: 16px;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.controls-dialog {
+  width: min(520px, 100%);
+  border: 1px solid #4f5248;
+  border-radius: 8px;
+  padding: 18px;
+  background: #151512;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+}
+
+.dialog-header {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.dialog-header button {
+  padding: 0 14px;
+}
+
+.controls-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.controls-list div {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) 1.4fr;
+  gap: 12px;
+  align-items: center;
+  border-bottom: 1px solid #33372f;
+  padding-bottom: 10px;
+}
+
+.controls-list dt {
+  color: #83c986;
+  font-weight: 900;
+}
+
+.controls-list dd {
+  margin: 0;
+  color: #f4f1e8;
+  font-weight: 800;
 }
 
 .player-stage {
