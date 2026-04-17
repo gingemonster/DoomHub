@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { customAlphabet, nanoid } from "nanoid";
 import type { Database } from "better-sqlite3";
 import type { AppConfig } from "./config.js";
@@ -54,27 +56,28 @@ export class RoomService {
 
     this.cleanupExpiredRooms();
     const rows = this.db.prepare(`
-      SELECT r.*, w.display_name AS wad_display_name,
+      SELECT r.*,
         (SELECT COUNT(*) FROM room_heartbeats h
           WHERE h.room_slug = r.slug
           AND h.last_seen_at > datetime('now', '-45 seconds')) AS active_players
       FROM rooms r
-      JOIN wads w ON w.id = r.wad_id
       WHERE r.expires_at > datetime('now')
       ORDER BY r.created_at DESC
       LIMIT 50
-    `).all() as Array<RoomRow & { wad_display_name: string; active_players: number }>;
+    `).all() as Array<RoomRow & { active_players: number }>;
+    const wads = new Map(this.listWads().map((wad) => [wad.id, wad]));
 
     return rows.map((row) => ({
       ...mapRoom(row),
-      wadDisplayName: row.wad_display_name,
+      wadDisplayName: wads.get(row.wad_id)?.displayName ?? titleFromId(row.wad_id),
       activePlayers: row.active_players
     }));
   }
 
   createRoom(input: CreateRoomInput): RoomRecord {
-    const wadId = input.wadId ?? "doom-shareware";
-    const mode = input.mode ?? "cooperative";
+    const availableWads = this.listWads();
+    const wadId = input.wadId ?? availableWads.find((wad) => wad.id === "doom-shareware")?.id ?? availableWads[0]?.id ?? "doom-shareware";
+    const mode = input.mode ?? "deathmatch";
     const maxPlayers = input.maxPlayers ?? 2;
     const episode = input.episode ?? 1;
     const map = input.map ?? 1;
@@ -101,6 +104,7 @@ export class RoomService {
     if (!wad.allowedModes.includes(mode)) {
       throw new HttpError(400, `${wad.displayName} does not allow ${mode} rooms.`);
     }
+    this.ensureWadRecord(wad);
 
     const now = new Date();
     const expiresAt = new Date(now.getTime() + this.config.roomTtlMinutes * 60_000);
@@ -180,15 +184,51 @@ export class RoomService {
 
   listWads(): WadRecord[] {
     const rows = this.db.prepare("SELECT * FROM wads ORDER BY display_name").all() as WadRow[];
-    return rows.map(mapWad);
+    const dbWads = new Map(rows.map((row) => [row.id, mapWad(row)]));
+    return this.listBundleWads(dbWads).sort((a, b) => a.displayName.localeCompare(b.displayName));
   }
 
   private getWad(id: string): WadRecord {
-    const row = this.db.prepare("SELECT * FROM wads WHERE id = ?").get(id) as WadRow | undefined;
-    if (!row) {
+    const wad = this.listWads().find((item) => item.id === id);
+    if (!wad) {
       throw new HttpError(400, "Unknown WAD.");
     }
-    return mapWad(row);
+    return wad;
+  }
+
+  private listBundleWads(dbWads: Map<string, WadRecord>): WadRecord[] {
+    const entries = fs.existsSync(this.config.bundleStoragePath)
+      ? fs.readdirSync(this.config.bundleStoragePath, { withFileTypes: true })
+      : [];
+
+    return entries
+      .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".jsdos"))
+      .map((entry) => {
+        const id = entry.name.slice(0, -".jsdos".length);
+        const dbWad = dbWads.get(id);
+        return {
+          id,
+          displayName: dbWad?.displayName ?? titleFromId(id),
+          fileName: dbWad?.fileName ?? entry.name,
+          sha256: dbWad?.sha256 ?? `bundle:${id}`,
+          allowedModes: dbWad?.allowedModes ?? ["cooperative", "deathmatch"],
+          createdAt: dbWad?.createdAt ?? fs.statSync(path.join(this.config.bundleStoragePath, entry.name)).mtime.toISOString()
+        };
+      });
+  }
+
+  private ensureWadRecord(wad: WadRecord): void {
+    this.db.prepare(`
+      INSERT OR IGNORE INTO wads (id, display_name, file_name, sha256, allowed_modes, created_at)
+      VALUES (@id, @displayName, @fileName, @sha256, @allowedModes, @createdAt)
+    `).run({
+      id: wad.id,
+      displayName: wad.displayName,
+      fileName: wad.fileName,
+      sha256: wad.sha256,
+      allowedModes: JSON.stringify(wad.allowedModes),
+      createdAt: wad.createdAt
+    });
   }
 
   private findRoom(slug: string, requireActive: boolean): RoomRecord | null {
@@ -237,4 +277,12 @@ function mapWad(row: WadRow): WadRecord {
     allowedModes: JSON.parse(row.allowed_modes) as RoomMode[],
     createdAt: row.created_at
   };
+}
+
+function titleFromId(id: string): string {
+  return id
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }

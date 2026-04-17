@@ -73,23 +73,27 @@ function App() {
 
 function HomePage() {
   const [wads, setWads] = useState<WadRecord[]>([]);
-  const [mode, setMode] = useState<RoomMode>("cooperative");
+  const [mode, setMode] = useState<RoomMode>("deathmatch");
   const [maxPlayers, setMaxPlayers] = useState(2);
   const [episode, setEpisode] = useState(1);
   const [map, setMap] = useState(1);
   const [skill, setSkill] = useState(3);
   const [deathmatchMonsters, setDeathmatchMonsters] = useState(false);
+  const [selectedWadId, setSelectedWadId] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     fetchJson<WadRecord[]>("/api/wads")
-      .then(setWads)
+      .then((loadedWads) => {
+        setWads(loadedWads);
+        setSelectedWadId((current) => current || loadedWads.find((wad) => wad.id === "doom-shareware")?.id || loadedWads[0]?.id || "");
+      })
       .catch((err: Error) => setError(err.message));
   }, []);
 
-  const selectedWad = wads[0];
+  const selectedWad = wads.find((wad) => wad.id === selectedWadId);
 
   async function createRoom(event: React.FormEvent) {
     event.preventDefault();
@@ -142,7 +146,8 @@ function HomePage() {
             <h2>Create a Room</h2>
             <label>
               WAD
-              <select value={selectedWad?.id ?? ""} disabled>
+              <select value={selectedWadId} onChange={(event) => setSelectedWadId(event.target.value)} disabled={wads.length === 0}>
+                {wads.length === 0 ? <option value="">No bundles found</option> : null}
                 {wads.map((wad) => (
                   <option key={wad.id} value={wad.id}>
                     {wad.displayName}

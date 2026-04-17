@@ -48,7 +48,37 @@ make docker-up-proxy
 
 That starts Compose with `COMPOSE_PROFILES=managed-proxy` and exposes Caddy on `http://localhost:8080`. Override the port with `PUBLIC_HTTP_PORT=8081 make docker-up-proxy`.
 
-For the MVP, room creation and js-dos launch configuration work before a playable bundle exists. Add a bundle named `doom-shareware.jsdos` under `data/bundles` to let `/api/rooms/:slug/bundle` serve it.
+Room creation scans direct `.jsdos` files under `data/bundles` and lists them in the WAD dropdown. For example, add `doom-shareware.jsdos` or `doom-full.jsdos` under `data/bundles`. Generated room-specific bundles are written under `data/bundles/generated` and are not listed.
+
+## Linux Docker image exports
+
+From macOS, use Buildx when you need Linux images for another server.
+
+Build Linux images into the local Docker image store:
+
+```sh
+docker buildx build --platform linux/amd64 --load -t doomhub-web:latest .
+docker buildx build --platform linux/amd64 --load -t doomhub-ipx:latest ./docker/ipx
+```
+
+For an ARM Linux server, use `linux/arm64` instead of `linux/amd64`.
+
+Export the images as tar files:
+
+```sh
+mkdir -p dist/images
+docker save doomhub-web:latest -o dist/images/doomhub-web-linux-amd64.tar
+docker save doomhub-ipx:latest -o dist/images/doomhub-ipx-linux-amd64.tar
+```
+
+Copy the tar files to the Linux server, then load them:
+
+```sh
+docker load -i doomhub-web-linux-amd64.tar
+docker load -i doomhub-ipx-linux-amd64.tar
+```
+
+If you use those image names with Compose, set the service `image:` values or retag the loaded images to match your production compose file. Keep licensed `.jsdos` bundles out of the image; mount them under `data/bundles` on the server.
 
 ## Configuration
 

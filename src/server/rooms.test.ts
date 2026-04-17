@@ -16,6 +16,17 @@ afterEach(() => {
 });
 
 describe("RoomService", () => {
+  it("lists direct js-dos bundles as selectable WADs", () => {
+    const service = createService();
+
+    expect(service.listWads().map((wad) => wad.id)).toEqual(["doom-full", "doom-shareware"]);
+    expect(service.listWads().find((wad) => wad.id === "doom-full")).toMatchObject({
+      displayName: "Doom Full",
+      allowedModes: ["cooperative", "deathmatch"]
+    });
+    expect(service.createRoom({ wadId: "doom-full" }).wadId).toBe("doom-full");
+  });
+
   it("creates private rooms with valid Doom multiplayer settings", () => {
     const service = createService();
     const room = service.createRoom({
@@ -30,6 +41,12 @@ describe("RoomService", () => {
     expect(room.maxPlayers).toBe(4);
     expect(room.map).toBe(3);
     expect(room.deathmatchMonsters).toBe(false);
+  });
+
+  it("defaults new rooms to deathmatch", () => {
+    const service = createService();
+
+    expect(service.createRoom({}).mode).toBe("deathmatch");
   });
 
   it("stores deathmatch monster preference only for deathmatch rooms", () => {
@@ -77,12 +94,17 @@ describe("RoomService", () => {
 function createService(overrides: Partial<AppConfig> = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "doomhub-"));
   tempDirs.push(dir);
+  const bundleStoragePath = path.join(dir, "bundles");
+  fs.mkdirSync(path.join(bundleStoragePath, "generated"), { recursive: true });
+  fs.writeFileSync(path.join(bundleStoragePath, "doom-shareware.jsdos"), "");
+  fs.writeFileSync(path.join(bundleStoragePath, "doom-full.jsdos"), "");
+  fs.writeFileSync(path.join(bundleStoragePath, "generated", "ignored.jsdos"), "");
   const config: AppConfig = {
     publicBaseUrl: "http://localhost:5173",
     ipxWssUrl: "ws://localhost",
     roomTtlMinutes: 180,
     wadStoragePath: path.join(dir, "wads"),
-    bundleStoragePath: path.join(dir, "bundles"),
+    bundleStoragePath,
     databasePath: path.join(dir, "test.sqlite"),
     port: 0,
     host: "127.0.0.1",
