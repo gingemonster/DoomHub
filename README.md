@@ -2,6 +2,8 @@
 
 Docker-hosted browser Doom rooms using js-dos and IPX room configuration.
 
+DoomHub runs the original DOS Doom inside js-dos. It is not a modern source port, so gameplay and networking are limited to the original Doom multiplayer feature set.
+
 ## Local macOS run
 
 1. Install Node 22 or newer.
