@@ -235,9 +235,10 @@ h1 {
 }
 
 .room-page {
-  min-height: 100vh;
+  height: 100vh;
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
 }
 
 .room-header {
@@ -350,7 +351,13 @@ h1 {
 
 .player-stage {
   position: relative;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  height: 100%;
   min-height: 0;
+  overflow: hidden;
+  padding: 50px;
   background: #050505;
 }
 
@@ -376,16 +383,16 @@ h1 {
 
 .dos-player {
   position: relative;
-  width: 100%;
-  height: 100%;
-  min-height: calc(100vh - 91px);
+  width: min(100%, calc((100vh - 91px - 100px) * 4 / 3));
+  max-height: 100%;
+  aspect-ratio: 4 / 3;
+  min-height: 0;
 }
 
 .dos-player canvas {
   display: block;
   width: 100%;
   height: 100%;
-  min-height: calc(100vh - 91px);
   background: #000;
   image-rendering: pixelated;
 }
@@ -422,5 +429,13 @@ h1 {
 
   .room-actions {
     flex-wrap: wrap;
+  }
+
+  .player-stage {
+    padding: 50px;
+  }
+
+  .dos-player {
+    width: 100%;
   }
 }

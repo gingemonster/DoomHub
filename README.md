@@ -24,12 +24,14 @@ You can confirm the server is running with `curl http://localhost:3000/api/healt
 
 ## WAD files
 
+'WAD' files are what doom uses to store all its levels but there are 2 types, IWADS are the complete game (like doom, doom2 or ultimate doom) and you need at least one of these to be uploaded to the `data/wads` file on the server. PWAD files are used to load additional maps to the base game IWAD.
+
 DoomHub scans direct `.wad` files under `data/wads`.
 
 - IWAD files are listed as base games.
 - PWAD files are listed as optional add-on maps during room creation.
 - Browser clients download the selected IWAD and PWAD files to run Doom locally, so only deploy WAD files you are legally allowed to distribute to players.
-- Shareware Doom cannot be combined with add-on PWADs because Chocolate Doom rejects `-file` with the shareware IWAD.
+- NOTE: Shareware Doom cannot be combined with add-on PWADs because Chocolate Doom rejects `-file` with the shareware IWAD.
 
 Room creation supports choosing the starting level and an optional level timer. The timer uses Chocolate Doom's native `-timer <minutes>` multiplayer behavior.
 
@@ -52,18 +54,12 @@ By default, Compose exposes the app directly:
 
 - Web app, API, and Doom WebSocket router: `http://localhost:3000`
 
-The bundled Caddy proxy is optional:
-
-```sh
-make docker-up-proxy
-```
-
-That starts Compose with `COMPOSE_PROFILES=managed-proxy` and exposes Caddy on `http://localhost:8080`. Override the port with `PUBLIC_HTTP_PORT=8081 make docker-up-proxy`.
+For play over the internet, put your own reverse proxy in front of DoomHub. Caddy, Nginx Proxy Manager, or a similar proxy should terminate HTTPS and support WebSocket upgrades for `/api/rooms/<room>/ws`.
 
 ## Simple deployment
 
 1. Build and install the Docker image on the target server. Use the Linux export flow below if the server cannot build the image itself.
-2. Put a reverse proxy in front of the app. The proxy must provide SSL for the website and support WebSocket upgrades for `/api/rooms/<room>/ws`.
+2. Put a reverse proxy such as Caddy or Nginx Proxy Manager in front of the app. The proxy must provide SSL for the website and support WebSocket upgrades for `/api/rooms/<room>/ws`.
 3. Mount legally distributable WAD files under `data/wads` on the server.
 
 ## Linux Docker image exports
@@ -101,5 +97,3 @@ Copy `.env.example` to `.env` for local overrides.
 - `ROOM_TTL_MINUTES`: room expiry window.
 - `WAD_STORAGE_PATH`: WAD storage directory.
 - `DATABASE_PATH`: SQLite database path.
-- `COMPOSE_PROFILES`: set to `managed-proxy` to include bundled Caddy.
-- `PUBLIC_HTTP_PORT`: host port for bundled Caddy when the `managed-proxy` profile is enabled.

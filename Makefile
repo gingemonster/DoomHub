@@ -1,4 +1,4 @@
-.PHONY: install dev api web build test check start docker-build docker-up docker-up-proxy docker-down clean
+.PHONY: install dev api web build test check start docker-build docker-up docker-down clean
 
 install:
 	npm install
@@ -29,9 +29,6 @@ docker-build:
 
 docker-up:
 	npm run docker:up
-
-docker-up-proxy:
-	npm run docker:up:proxy
 
 docker-down:
 	npm run docker:down

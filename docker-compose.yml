@@ -13,16 +13,5 @@ services:
     ports:
       - "3000:3000"
 
-  caddy:
-    image: caddy:2-alpine
-    profiles:
-      - managed-proxy
-    depends_on:
-      - web
-    ports:
-      - "${PUBLIC_HTTP_PORT:-8080}:80"
-    volumes:
-      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-
 volumes:
   doomhub-data:

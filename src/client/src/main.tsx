@@ -344,6 +344,7 @@ function RoomPage({ slug }: { slug: string }) {
   }, [room, slug]);
 
   const shareUrl = useMemo(() => `${window.location.origin}/r/${slug}`, [slug]);
+  const gameStarted = Boolean(room?.gameStartedAt ?? launch?.gameStarted);
 
   async function startPlayer() {
     if (!launch || !room) {
@@ -386,7 +387,7 @@ function RoomPage({ slug }: { slug: string }) {
         <div className="room-actions">
           <span>{activePlayers} active</span>
           <button type="button" onClick={() => setShowControls(true)}>Controls</button>
-          <button type="button" onClick={() => navigator.clipboard.writeText(shareUrl)}>Copy Link</button>
+          {!gameStarted ? <button type="button" onClick={() => navigator.clipboard.writeText(shareUrl)}>Copy Link</button> : null}
           <button type="button" onClick={() => canvasRef.current?.requestFullscreen()}>Fullscreen</button>
         </div>
       </header>
@@ -497,14 +498,17 @@ function ControlsDialog({ onClose }: { onClose: () => void }) {
           <button type="button" onClick={onClose} aria-label="Close controls">Close</button>
         </div>
         <dl className="controls-list">
-          <div><dt>Move</dt><dd>Arrow keys</dd></div>
-          <div><dt>Fire</dt><dd>S</dd></div>
-          <div><dt>Open doors / use</dt><dd>Space</dd></div>
-          <div><dt>Run</dt><dd>Right Shift</dd></div>
-          <div><dt>Strafe</dt><dd>Left Alt</dd></div>
+          <div><dt>Move</dt><dd>W / S or arrow keys</dd></div>
+          <div><dt>Turn</dt><dd>O / P or arrow keys</dd></div>
+          <div><dt>Fire</dt><dd>Space or left mouse</dd></div>
+          <div><dt>Open doors / use</dt><dd>E</dd></div>
+          <div><dt>Run</dt><dd>Left Shift</dd></div>
+          <div><dt>Strafe modifier</dt><dd>C</dd></div>
           <div><dt>Strafe left / right</dt><dd>A / D</dd></div>
+          <div><dt>Mouse turn</dt><dd>Move mouse left / right</dd></div>
           <div><dt>Weapons</dt><dd>Number keys</dd></div>
-          <div><dt>Menu</dt><dd>Esc</dd></div>
+          <div><dt>Map / chat</dt><dd>Tab / T</dd></div>
+          <div><dt>Fullscreen</dt><dd>F</dd></div>
         </dl>
       </section>
     </div>

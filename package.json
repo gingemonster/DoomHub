@@ -15,8 +15,7 @@
     "check": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit",
     "docker:build": "docker-compose build",
     "docker:up": "docker-compose up --build",
-    "docker:up:proxy": "PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-http://localhost:8080} COMPOSE_PROFILES=managed-proxy docker-compose up --build",
-    "docker:down": "docker-compose --profile managed-proxy down"
+    "docker:down": "docker-compose down"
   },
   "dependencies": {
     "@fastify/cors": "^11.1.0",
