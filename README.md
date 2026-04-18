@@ -76,6 +76,8 @@ Example runtime command:
 docker run --rm \
   -p 3000:3000 \
   -e PUBLIC_BASE_URL=http://localhost:3000 \
+  -e DATABASE_PATH=/data/doomhub.sqlite \
+  -e WAD_STORAGE_PATH=/data/wads \
   -v "$PWD/data:/data" \
   gingemonsteruk/doomhub:latest
 ```
