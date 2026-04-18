@@ -22,8 +22,9 @@ The intended image name is:
 gingemonsteruk/doomhub
 ```
 
-Create a DockerHub access token and add this GitHub repository secret:
+Create a DockerHub access token and add these GitHub repository secrets:
 
+- `DOCKERHUB_USERNAME`: `gingemonsteruk`
 - `DOCKERHUB_TOKEN`: the DockerHub personal access token
 
 Do not commit the DockerHub token to the repository.
