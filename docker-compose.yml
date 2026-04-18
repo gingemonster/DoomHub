@@ -8,10 +8,6 @@ services:
       DATABASE_PATH: /data/doomhub.sqlite
       PORT: 3000
     volumes:
-      - doomhub-data:/data
-      - ./data/wads:/data/wads
+      - ./data:/data
     ports:
       - "3000:3000"
-
-volumes:
-  doomhub-data:

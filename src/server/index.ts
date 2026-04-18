@@ -12,6 +12,7 @@ import { RoomService } from "./rooms.js";
 
 export async function buildServer() {
   const config = loadConfig();
+  fs.mkdirSync(config.wadStoragePath, { recursive: true });
   const app = fastify({ logger: true });
   const db = openDatabase(config);
   const rooms = new RoomService(db, config);

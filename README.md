@@ -43,12 +43,11 @@ The WebAssembly runtime assets are included under `src/client/public/doom-wasm` 
 - `make docker-up`
 - Open `http://localhost:3000`.
 
-The compose file mounts:
+The compose file mounts one host data directory:
 
-- `./data/wads` for operator-supplied IWAD and PWAD files.
-- A Docker volume for SQLite metadata.
+- `./data` to `/data` for SQLite metadata and operator-supplied IWAD/PWAD files.
 
-The web image does not include local `data` contents. Keep WAD files mounted at runtime instead of baking licensed game data into the image.
+The server creates `/data/wads` on startup if it does not exist. Put WAD files under `data/wads` on the host. The web image does not include local `data` contents; keep WAD files mounted at runtime instead of baking licensed game data into the image.
 
 By default, Compose exposes the app directly:
 

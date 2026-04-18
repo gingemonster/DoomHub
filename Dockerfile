@@ -14,6 +14,6 @@ ENV NODE_ENV=production
 COPY package.json package-lock.json* ./
 RUN apk add --no-cache python3 make g++ && npm install --omit=dev && apk del python3 make g++
 COPY --from=build /app/dist ./dist
-RUN mkdir -p /data/wads ./data/wads
+RUN mkdir -p /data
 EXPOSE 3000
 CMD ["npm", "start"]
