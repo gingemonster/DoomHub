@@ -111,15 +111,16 @@ function HomePage() {
   const baseWads = wads.filter((wad) => wad.kind === "base");
   const addonWads = wads.filter((wad) => wad.kind === "addon");
   const selectedBaseWad = baseWads.find((wad) => wad.id === selectedBaseWadId);
+  const compatibleAddonWads = addonWads.filter((wad) => selectedBaseWad && wad.mapFormat === selectedBaseWad.mapFormat);
   const selectedAddonWads = selectedAddonWadIds
-    .map((id) => addonWads.find((wad) => wad.id === id))
+    .map((id) => compatibleAddonWads.find((wad) => wad.id === id))
     .filter((wad): wad is WadRecord => Boolean(wad));
   const mapOptions = useMemo(() => effectiveMapOptions(selectedBaseWad, selectedAddonWads), [selectedBaseWad, selectedAddonWads]);
   const selectedMap = parseMapName(mapName, selectedBaseWad?.mapFormat ?? "episode-map");
 
   useEffect(() => {
-    setSelectedAddonWadIds((current) => current.filter((id) => addonWads.some((wad) => wad.id === id && wad.mapFormat === selectedBaseWad?.mapFormat)));
-  }, [addonWads, selectedBaseWad]);
+    setSelectedAddonWadIds((current) => current.filter((id) => compatibleAddonWads.some((wad) => wad.id === id)));
+  }, [compatibleAddonWads]);
 
   useEffect(() => {
     if (mapOptions.length > 0 && !mapOptions.includes(mapName)) {
@@ -189,7 +190,7 @@ function HomePage() {
           <form onSubmit={createRoom} className="room-form">
             <h2>Create a Room</h2>
             <label>
-              Base WAD
+              Base Game (IWADS)
               <select value={selectedBaseWadId} onChange={(event) => setSelectedBaseWadId(event.target.value)} disabled={baseWads.length === 0}>
                 {baseWads.length === 0 ? <option value="">No IWADs found</option> : null}
                 {baseWads.map((wad) => (
@@ -203,13 +204,13 @@ function HomePage() {
             <fieldset className="addon-list">
               <legend>Add-on maps</legend>
               {addonWads.length === 0 ? <p>No PWADs found in data/wads.</p> : null}
-              {addonWads.map((wad) => (
+              {addonWads.length > 0 && compatibleAddonWads.length === 0 ? <p>No add-on maps match this base game.</p> : null}
+              {compatibleAddonWads.map((wad) => (
                 <label key={wad.id} className="checkbox-field">
                   <input
                     type="checkbox"
                     checked={selectedAddonWadIds.includes(wad.id)}
                     onChange={(event) => toggleAddon(wad.id, event.target.checked)}
-                    disabled={selectedBaseWad ? wad.mapFormat !== selectedBaseWad.mapFormat : true}
                   />
                   <span>{wad.displayName}</span>
                 </label>
@@ -255,21 +256,24 @@ function HomePage() {
                 Skill
                 <input type="number" min="1" max="5" value={skill} onChange={(event) => setSkill(Number(event.target.value))} />
               </label>
-              <label>
-                Timer
-                <input type="number" min="0" max="120" value={levelTimerMinutes} onChange={(event) => setLevelTimerMinutes(Number(event.target.value))} />
-              </label>
+              <div className="field-with-help">
+                <label>
+                  Level timer
+                  <input type="number" min="0" max="120" value={levelTimerMinutes} onChange={(event) => setLevelTimerMinutes(Number(event.target.value))} />
+                </label>
+                <p className="field-help">Minutes before moving to the next map. Use 0 to disable.</p>
+              </div>
             </div>
 
             <button type="submit" disabled={busy || !selectedBaseWad}>
-              {busy ? "Creating..." : "Start Private Room"}
+              {busy ? "Creating..." : "Start Game Room"}
             </button>
           </form>
 
           <form onSubmit={joinRoom} className="join-form">
             <h2>Join a Room</h2>
             <p className="form-help">
-              Join before the host starts. Doom multiplayer does not allow late active players.
+              Join before the host starts the game as Doom multiplayer does not allow players to join after the game starts.
             </p>
             <label>
               Room code
