@@ -1,6 +1,7 @@
 {
   "name": "doomhub",
   "version": "0.1.0",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,9 +14,9 @@
     "start": "node dist/server/index.js",
     "test": "vitest run --config vitest.config.ts",
     "check": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit",
-    "docker:build": "docker-compose build",
-    "docker:up": "docker-compose up --build",
-    "docker:down": "docker-compose down"
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down"
   },
   "dependencies": {
     "@fastify/cors": "^11.1.0",

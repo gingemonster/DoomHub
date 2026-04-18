@@ -1,98 +1,105 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/gingemonster/DoomHub/main/src/client/public/doomhublogo.png" alt="DoomHub" width="420">
+</p>
+
 # DoomHub
 
-Docker-hosted browser based Doom for playing with up to 4 players online in their web browsers with no client install required.
+Docker-hosted browser-based Doom for playing with up to 4 players online with no client install required.
 
 DoomHub runs Cloudflare's WebAssembly Doom port with a self-hosted WebSocket router. It keeps vanilla Chocolate Doom multiplayer behavior: players must join before the host starts the match, and active late join is not supported.
 
-## Running it locally for development
+Source code: https://github.com/gingemonster/DoomHub
 
-1. Install Node 22 or newer.
-2. Run `make install`.
-3. Add legally distributable WAD files under `data/wads`.
-4. Run `make dev`.
-5. Open `http://localhost:5173`.
+Docker image: https://hub.docker.com/r/gingemonsteruk/doomhub
 
-The API and WebSocket router run on `http://localhost:3000`. In local development, the frontend server on `http://localhost:5173` forwards `/api` HTTP and WebSocket requests to that API server.
-You can confirm the server is running with `curl http://localhost:3000/api/health`.
+## Quick Start
 
-## Build and test
+Create a local data directory and add legally distributable WAD files:
 
-- `make check`: TypeScript checks for frontend and backend.
-- `make test`: unit tests.
-- `make build`: Vite frontend build plus server compilation.
-- `make start`: serve the production build on `http://localhost:3000`.
+```sh
+mkdir -p data/wads
+```
 
-## WAD files
+Run DoomHub with Docker Compose:
 
-'WAD' files are what doom uses to store all its levels but there are 2 types, IWADS are the complete game (like doom, doom2 or ultimate doom) and you need at least one of these to be uploaded to the `data/wads` file on the server. PWAD files are used to load additional maps to the base game IWAD.
+```sh
+docker compose up --build
+```
+
+Open `http://localhost:3000`.
+
+The compose file mounts one host data directory:
+
+- `./data` to `/data` for SQLite metadata and operator-supplied IWAD/PWAD files.
+
+The server creates `/data/wads` on startup if it does not exist. Put WAD files under `data/wads` on the host.
+
+## WAD Files
+
+WAD files store Doom game data.
+
+- IWAD files are complete base games, such as Doom, Doom II, or Ultimate Doom.
+- PWAD files are optional add-on maps or modifications loaded on top of a base IWAD.
+
+No WAD files are included in this repository or Docker image. You must source your own WAD files.
 
 DoomHub scans direct `.wad` files under `data/wads`.
 
 - IWAD files are listed as base games.
 - PWAD files are listed as optional add-on maps during room creation.
 - Browser clients download the selected IWAD and PWAD files to run Doom locally, so only deploy WAD files you are legally allowed to distribute to players.
-- NOTE: Shareware Doom cannot be combined with add-on PWADs because Chocolate Doom rejects `-file` with the shareware IWAD.
+- Shareware Doom cannot be combined with add-on PWADs because Chocolate Doom rejects `-file` with the shareware IWAD.
 
 Room creation supports choosing the starting level and an optional level timer. The timer uses Chocolate Doom's native `-timer <minutes>` multiplayer behavior.
 
-The WebAssembly runtime assets are included under `src/client/public/doom-wasm` and copied into the production Docker image by the normal Vite build.
-
-## Running it in Docker
-
-- `make docker-build`
-- `make docker-up`
-- Open `http://localhost:3000`.
-
-The compose file mounts one host data directory:
-
-- `./data` to `/data` for SQLite metadata and operator-supplied IWAD/PWAD files.
-
-The server creates `/data/wads` on startup if it does not exist. Put WAD files under `data/wads` on the host. The web image does not include local `data` contents; keep WAD files mounted at runtime instead of baking licensed game data into the image.
-
-By default, Compose exposes the app directly:
-
-- Web app, API, and Doom WebSocket router: `http://localhost:3000`
+## Internet Play
 
 For play over the internet, put your own reverse proxy in front of DoomHub. Caddy, Nginx Proxy Manager, or a similar proxy should terminate HTTPS and support WebSocket upgrades for `/api/rooms/<room>/ws`.
 
-## Simple deployment
-
-1. Build and install the Docker image on the target server. Use the Linux export flow below if the server cannot build the image itself.
-2. Put a reverse proxy such as Caddy or Nginx Proxy Manager in front of the app. The proxy must provide SSL for the website and support WebSocket upgrades for `/api/rooms/<room>/ws`.
-3. Mount legally distributable WAD files under `data/wads` on the server.
-
-## Linux Docker image exports
-
-Use Buildx when you need Linux images for another server.
-
-Build a Linux image into the local Docker image store:
+Set `PUBLIC_BASE_URL` to the public origin used in room links, for example:
 
 ```sh
-docker buildx build --platform linux/amd64 --load -t doomhub-web:latest .
+PUBLIC_BASE_URL=https://doom.example.com
 ```
 
-For an ARM Linux server, use `linux/arm64` instead of `linux/amd64`.
+## Docker Image
 
-Export the image as a tar file:
+The intended DockerHub image name is:
 
 ```sh
-mkdir -p dist/images
-docker save doomhub-web:latest -o dist/images/doomhub-web-linux-amd64.tar
+gingemonsteruk/doomhub
 ```
 
-Copy the tar file to the Linux server, then load it:
+Example runtime command:
 
 ```sh
-docker load -i doomhub-web-linux-amd64.tar
+docker run --rm \
+  -p 3000:3000 \
+  -e PUBLIC_BASE_URL=http://localhost:3000 \
+  -v "$PWD/data:/data" \
+  gingemonsteruk/doomhub:latest
 ```
 
-If you use that image name with Compose, set the service `image:` value or retag the loaded image to match your production compose file. Keep licensed WADs out of the image; mount them under `data/wads` on the server.
+The web image does not include local `data` contents. Keep WAD files mounted at runtime instead of baking licensed game data into the image.
 
-## Configuration
+## Credits
 
-Copy `.env.example` to `.env` for local overrides.
+DoomHub uses and references:
 
-- `PUBLIC_BASE_URL`: public origin used in generated room links.
-- `ROOM_TTL_MINUTES`: room expiry window.
-- `WAD_STORAGE_PATH`: WAD storage directory.
-- `DATABASE_PATH`: SQLite database path.
+- [Chocolate Doom](https://github.com/chocolate-doom/chocolate-doom)
+- [Cloudflare doom-wasm](https://github.com/cloudflare/doom-wasm)
+- [Cloudflare doom-workers](https://github.com/cloudflare/doom-workers)
+
+The bundled Doom WebAssembly runtime is GPL-licensed third-party software. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and `src/client/public/doom-wasm/COPYING.md`.
+
+## AI Acknowledgement
+
+Portions of DoomHub were implemented with assistance from OpenAI Codex. The maintainer is responsible for reviewing, testing, and publishing releases.
+
+## Disclaimer
+
+DoomHub is provided as-is, without warranty. Use it at your own risk. The maintainer is not responsible for data loss, service issues, licensing problems, server exposure, gameplay issues, or other consequences from running or modifying this software.
+
+## Development
+
+Development setup, VS Code tasks, testing, and publishing notes are in [DEVELOPMENT.md](DEVELOPMENT.md) and [PUBLISHING.md](PUBLISHING.md).
