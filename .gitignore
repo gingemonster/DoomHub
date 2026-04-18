@@ -6,6 +6,5 @@ data/*.sqlite
 data/*.sqlite-*
 data/bundles/*
 data/wads/*
-!data/bundles/.gitkeep
 !data/wads/.gitkeep
 dockerimages/*

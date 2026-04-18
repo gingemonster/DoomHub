@@ -2,6 +2,7 @@ import path from "node:path";
 import fs from "node:fs";
 import cors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
+import fastifyWebsocket from "@fastify/websocket";
 import fastify from "fastify";
 import { loadConfig } from "./config.js";
 import { openDatabase } from "./db.js";
@@ -14,9 +15,14 @@ export async function buildServer() {
   const app = fastify({ logger: true });
   const db = openDatabase(config);
   const rooms = new RoomService(db, config);
-  app.log.info({ ipxWssUrl: config.ipxWssUrl }, "Using js-dos IPX relay");
+  app.log.info("Using Doom WASM WebSocket router");
 
   await app.register(cors, { origin: true });
+  await app.register(fastifyWebsocket, {
+    options: {
+      perMessageDeflate: false
+    }
+  });
   await registerRoutes(app, rooms, config);
 
   const clientDist = path.resolve("dist/client");

@@ -2,7 +2,6 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import JSZip from "jszip";
 import { openDatabase } from "./db.js";
 import { HttpError } from "./errors.js";
 import { RoomService } from "./rooms.js";
@@ -17,142 +16,138 @@ afterEach(() => {
 });
 
 describe("RoomService", () => {
-  it("lists direct js-dos bundles as selectable WADs", async () => {
+  it("lists IWADs as base WADs and PWADs as add-ons", async () => {
     const service = await createService();
 
     const wads = await service.listWads();
-    expect(wads.map((wad) => wad.id)).toEqual(["doom-full", "doom-shareware"]);
-    expect(wads.find((wad) => wad.id === "doom-full")).toMatchObject({
-      displayName: "Doom Full",
-      allowedModes: ["cooperative", "deathmatch"],
-      mapFormat: "episode-map",
-      maxEpisode: 2,
-      maxMap: 9
-    });
-    expect((await service.createRoom({ wadId: "doom-full" })).wadId).toBe("doom-full");
-  });
-
-  it("detects Doom II map-number bundles from WAD lumps", async () => {
-    const service = await createService({
-      bundles: {
-        "doom2.jsdos": ["MAP01", "MAP15", "MAP32"]
-      }
-    });
-
-    expect((await service.listWads()).find((wad) => wad.id === "doom2")).toMatchObject({
+    expect(wads.find((wad) => wad.id === "doom2")).toMatchObject({
+      kind: "base",
+      identification: "IWAD",
       mapFormat: "map-number",
-      maxEpisode: 1,
-      maxMap: 32
+      maxMap: 32,
+      maps: ["MAP01", "MAP15", "MAP32"]
     });
-
-    const room = await service.createRoom({ wadId: "doom2", map: 32 });
-    expect(room).toMatchObject({ mapFormat: "map-number", map: 32 });
+    expect(wads.find((wad) => wad.id === "dwango20")).toMatchObject({
+      kind: "addon",
+      identification: "PWAD",
+      mapFormat: "map-number",
+      maps: ["MAP01", "MAP07"]
+    });
   });
 
-  it("creates private rooms with valid Doom multiplayer settings", async () => {
+  it("creates rooms with a base IWAD, add-on PWADs, selected map, and timer", async () => {
     const service = await createService();
-    const room = await service.createRoom({
-      mode: "cooperative",
+    const result = await service.createRoom({
+      baseWadId: "doom2",
+      addonWadIds: ["dwango20"],
+      mode: "deathmatch",
       maxPlayers: 4,
-      episode: 1,
-      map: 3,
-      skill: 2
+      map: 7,
+      levelTimerMinutes: 10
     });
 
-    expect(room.slug).toMatch(/^[A-Z2-9]{8}$/);
-    expect(room.maxPlayers).toBe(4);
-    expect(room.map).toBe(3);
-    expect(room.deathmatchMonsters).toBe(false);
+    expect(result.hostToken).toHaveLength(64);
+    expect(result.room).toMatchObject({
+      baseWadId: "doom2",
+      addonWadIds: ["dwango20"],
+      mapFormat: "map-number",
+      map: 7,
+      levelTimerMinutes: 10
+    });
   });
 
-  it("defaults new rooms to deathmatch", async () => {
+  it("rejects add-ons with the shareware IWAD", async () => {
     const service = await createService();
 
-    expect((await service.createRoom({})).mode).toBe("deathmatch");
+    await expect(service.createRoom({
+      baseWadId: "doom-shareware",
+      addonWadIds: ["episode-addon"],
+      episode: 1,
+      map: 1
+    })).rejects.toThrow(HttpError);
   });
 
-  it("stores deathmatch monster preference only for deathmatch rooms", async () => {
+  it("rejects maps not present in the selected WAD files", async () => {
     const service = await createService();
 
-    expect((await service.createRoom({ mode: "deathmatch", deathmatchMonsters: true })).deathmatchMonsters).toBe(true);
-    expect((await service.createRoom({ mode: "cooperative", deathmatchMonsters: true })).deathmatchMonsters).toBe(false);
+    await expect(service.createRoom({ baseWadId: "doom2", addonWadIds: ["dwango20"], map: 6 })).rejects.toThrow(HttpError);
   });
 
-  it("rejects player counts outside vanilla multiplayer limits", async () => {
+  it("rejects invalid level timers", async () => {
     const service = await createService();
-    await expect(service.createRoom({ maxPlayers: 5 })).rejects.toThrow(HttpError);
+
+    await expect(service.createRoom({ baseWadId: "doom2", levelTimerMinutes: 121 })).rejects.toThrow(HttpError);
+  });
+
+  it("marks rooms as started only for the host and blocks late joiners", async () => {
+    const service = await createService();
+    const { room, hostToken } = await service.createRoom({ baseWadId: "doom2" });
+
+    await expect(() => service.startRoom(room.slug, undefined)).toThrow(HttpError);
+    expect(service.startRoom(room.slug, hostToken).gameStartedAt).not.toBeNull();
+
+    const joinerLaunch = await service.getLaunchConfig(room.slug, undefined, "ws://localhost/ws");
+    expect(joinerLaunch).toMatchObject({
+      role: "joiner",
+      canLaunch: false,
+      gameStarted: true
+    });
+
+    const hostLaunch = await service.getLaunchConfig(room.slug, hostToken, "ws://localhost/ws");
+    expect(hostLaunch).toMatchObject({
+      role: "host",
+      canLaunch: true,
+      gameStarted: true
+    });
   });
 
   it("tracks active players through heartbeats", async () => {
     const service = await createService();
-    const room = await service.createRoom({});
+    const { room } = await service.createRoom({ baseWadId: "doom2" });
 
     expect(service.heartbeat(room.slug, "player-a")).toEqual({ activePlayers: 1 });
     expect(service.heartbeat(room.slug, "player-b")).toEqual({ activePlayers: 2 });
   });
 
-  it("returns a named js-dos IPX backend with the configured websocket base URL", async () => {
-    const service = await createService({ ipxWssUrl: "ws://localhost:1900/ipx" });
-    const room = await service.createRoom({});
-
-    expect(service.getLaunchConfig(room.slug)).toMatchObject({
-      ipxBackend: "DoomHub",
-      room: room.slug,
-      ipx: [{ name: "DoomHub", host: "ws://localhost:1900/ipx" }]
-    });
-  });
-
   it("hides private rooms unless visibility is enabled", async () => {
     const hidden = await createService({ visiblePrivateRooms: false });
-    await hidden.createRoom({});
+    await hidden.createRoom({ baseWadId: "doom2" });
     await expect(hidden.listRooms()).resolves.toEqual([]);
 
     const visible = await createService({ visiblePrivateRooms: true });
-    await visible.createRoom({});
+    await visible.createRoom({ baseWadId: "doom2" });
     await expect(visible.listRooms()).resolves.toHaveLength(1);
   });
 });
 
-async function createService(overrides: Partial<AppConfig> & { bundles?: Record<string, string[]> } = {}) {
+async function createService(overrides: Partial<AppConfig> = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "doomhub-"));
   tempDirs.push(dir);
-  const bundleStoragePath = path.join(dir, "bundles");
-  fs.mkdirSync(path.join(bundleStoragePath, "generated"), { recursive: true });
-  const bundles = overrides.bundles ?? {
-    "doom-shareware.jsdos": ["E1M1", "E1M9"],
-    "doom-full.jsdos": ["E1M1", "E1M9", "E2M1"]
-  };
-  for (const [fileName, maps] of Object.entries(bundles)) {
-    fs.writeFileSync(path.join(bundleStoragePath, fileName), await createJsdosBundle(maps));
-  }
-  fs.writeFileSync(path.join(bundleStoragePath, "generated", "ignored.jsdos"), "");
-  const { bundles: _bundles, ...configOverrides } = overrides;
+  const wadStoragePath = path.join(dir, "wads");
+  fs.mkdirSync(wadStoragePath, { recursive: true });
+  fs.writeFileSync(path.join(wadStoragePath, "doom-shareware.wad"), createWad("IWAD", ["E1M1", "E1M9"]));
+  fs.writeFileSync(path.join(wadStoragePath, "doom2.wad"), createWad("IWAD", ["MAP01", "MAP15", "MAP32"]));
+  fs.writeFileSync(path.join(wadStoragePath, "DWANGO20.WAD"), createWad("PWAD", ["MAP01", "MAP07"]));
+  fs.writeFileSync(path.join(wadStoragePath, "episode-addon.wad"), createWad("PWAD", ["E1M1"]));
+
   const config: AppConfig = {
     publicBaseUrl: "http://localhost:5173",
-    ipxWssUrl: "ws://localhost:1900/ipx",
     roomTtlMinutes: 180,
-    wadStoragePath: path.join(dir, "wads"),
-    bundleStoragePath,
+    wadStoragePath,
     databasePath: path.join(dir, "test.sqlite"),
     port: 0,
     host: "127.0.0.1",
     visiblePrivateRooms: true,
-    ...configOverrides
+    ...overrides
   };
   return new RoomService(openDatabase(config), config);
 }
 
-async function createJsdosBundle(lumpNames: string[]): Promise<Buffer> {
-  const zip = new JSZip();
-  zip.file("GAME.WAD", createWad(lumpNames));
-  return zip.generateAsync({ type: "nodebuffer" });
-}
-
-function createWad(lumpNames: string[]): Buffer {
+function createWad(identification: "IWAD" | "PWAD", lumpNames: string[]): Buffer {
   const headerSize = 12;
   const directoryOffset = headerSize;
   const buffer = Buffer.alloc(headerSize + lumpNames.length * 16);
-  buffer.write("IWAD", 0, "ascii");
+  buffer.write(identification, 0, "ascii");
   buffer.writeInt32LE(lumpNames.length, 4);
   buffer.writeInt32LE(directoryOffset, 8);
 

@@ -1,22 +1,28 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 
 type RoomMode = "cooperative" | "deathmatch";
 type MapFormat = "episode-map" | "map-number";
+type WadKind = "base" | "addon";
+type LaunchRole = "host" | "joiner";
 
 interface WadRecord {
   id: string;
   displayName: string;
+  fileName: string;
+  kind: WadKind;
   allowedModes: RoomMode[];
   mapFormat: MapFormat;
   maxEpisode: number;
   maxMap: number;
+  maps: string[];
 }
 
 interface RoomRecord {
   slug: string;
-  wadId: string;
+  baseWadId: string;
+  addonWadIds: string[];
   mode: RoomMode;
   maxPlayers: number;
   episode: number;
@@ -24,47 +30,49 @@ interface RoomRecord {
   mapFormat: MapFormat;
   skill: number;
   deathmatchMonsters: boolean;
+  levelTimerMinutes: number;
+  gameStartedAt: string | null;
   expiresAt: string;
 }
 
-interface LaunchConfig {
-  bundleUrl: string;
-  ipxBackend: string;
-  room: string;
-  ipx: Array<{ name: string; host: string }>;
-}
-
-interface BundleStatus {
-  available: boolean;
-  expectedPath: string;
-}
-
-interface DosProps {
-  stop(): Promise<void>;
-  setFullScreen(fullScreen: boolean): void;
-}
-
-interface CommandInterface {
-  networkConnect(networkType: number, address: string): Promise<void>;
-}
-
-interface DosOptions {
+interface LaunchWadFile {
+  id: string;
+  fileName: string;
   url: string;
-  ipxBackend: string;
+}
+
+interface LaunchConfig {
+  role: LaunchRole;
   room: string;
-  ipx: Array<{ name: string; host: string }>;
-  autoStart: boolean;
-  mouseCapture: boolean;
-  renderAspect: "Fit" | "4/3";
-  imageRendering: "pixelated" | "smooth";
-  theme: "dark" | "retro";
-  noNetworking: boolean;
-  onEvent?: (event: string, arg?: CommandInterface | boolean) => void;
+  canLaunch: boolean;
+  gameStarted: boolean;
+  blockedReason: string | null;
+  wsPath: string;
+  wasmScriptUrl: string;
+  baseWad: LaunchWadFile;
+  addonWads: LaunchWadFile[];
+  args: string[];
+}
+
+interface DoomModule {
+  FS?: {
+    createPreloadedFile(parent: string, name: string, url: string, canRead: boolean, canWrite: boolean): void;
+  };
+  canvas?: HTMLCanvasElement | null;
+  noInitialRun?: boolean;
+  onRuntimeInitialized?: () => void;
+  preRun?: () => void;
+  print?: (text: string) => void;
+  printErr?: (text: string) => void;
+  setStatus?: (text: string) => void;
+  totalDependencies?: number;
+  monitorRunDependencies?: (left: number) => void;
 }
 
 declare global {
   interface Window {
-    Dos?: (element: HTMLDivElement, options: Partial<DosOptions>) => DosProps;
+    Module?: DoomModule;
+    callMain?: (args: string[]) => void;
     __DOOMHUB_LAUNCH__?: LaunchConfig;
   }
 }
@@ -80,11 +88,12 @@ function HomePage() {
   const [wads, setWads] = useState<WadRecord[]>([]);
   const [mode, setMode] = useState<RoomMode>("deathmatch");
   const [maxPlayers, setMaxPlayers] = useState(2);
-  const [episode, setEpisode] = useState(1);
-  const [map, setMap] = useState(1);
+  const [mapName, setMapName] = useState("E1M1");
   const [skill, setSkill] = useState(3);
+  const [levelTimerMinutes, setLevelTimerMinutes] = useState(0);
   const [deathmatchMonsters, setDeathmatchMonsters] = useState(false);
-  const [selectedWadId, setSelectedWadId] = useState("");
+  const [selectedBaseWadId, setSelectedBaseWadId] = useState("");
+  const [selectedAddonWadIds, setSelectedAddonWadIds] = useState<string[]>([]);
   const [joinCode, setJoinCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -93,40 +102,57 @@ function HomePage() {
     fetchJson<WadRecord[]>("/api/wads")
       .then((loadedWads) => {
         setWads(loadedWads);
-        setSelectedWadId((current) => current || loadedWads.find((wad) => wad.id === "doom-shareware")?.id || loadedWads[0]?.id || "");
+        const baseWads = loadedWads.filter((wad) => wad.kind === "base");
+        setSelectedBaseWadId((current) => current || baseWads.find((wad) => wad.id === "doom-shareware")?.id || baseWads[0]?.id || "");
       })
       .catch((err: Error) => setError(err.message));
   }, []);
 
-  const selectedWad = wads.find((wad) => wad.id === selectedWadId);
-  const usesEpisodes = selectedWad?.mapFormat !== "map-number";
+  const baseWads = wads.filter((wad) => wad.kind === "base");
+  const addonWads = wads.filter((wad) => wad.kind === "addon");
+  const selectedBaseWad = baseWads.find((wad) => wad.id === selectedBaseWadId);
+  const selectedAddonWads = selectedAddonWadIds
+    .map((id) => addonWads.find((wad) => wad.id === id))
+    .filter((wad): wad is WadRecord => Boolean(wad));
+  const mapOptions = useMemo(() => effectiveMapOptions(selectedBaseWad, selectedAddonWads), [selectedBaseWad, selectedAddonWads]);
+  const selectedMap = parseMapName(mapName, selectedBaseWad?.mapFormat ?? "episode-map");
 
   useEffect(() => {
-    if (!selectedWad) {
-      return;
+    setSelectedAddonWadIds((current) => current.filter((id) => addonWads.some((wad) => wad.id === id && wad.mapFormat === selectedBaseWad?.mapFormat)));
+  }, [addonWads, selectedBaseWad]);
+
+  useEffect(() => {
+    if (mapOptions.length > 0 && !mapOptions.includes(mapName)) {
+      setMapName(mapOptions[0]);
     }
-    setEpisode((current) => Math.min(Math.max(current, 1), selectedWad.maxEpisode));
-    setMap((current) => Math.min(Math.max(current, 1), selectedWad.maxMap));
-  }, [selectedWad]);
+  }, [mapOptions, mapName]);
 
   async function createRoom(event: React.FormEvent) {
     event.preventDefault();
+    if (!selectedBaseWad || !selectedMap) {
+      setError("Choose a base WAD and map.");
+      return;
+    }
+
     setBusy(true);
     setError(null);
     try {
-      const response = await fetchJson<{ room: RoomRecord }>("/api/rooms", {
+      const response = await fetchJson<{ room: RoomRecord; hostToken: string }>("/api/rooms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          wadId: selectedWad?.id,
+          baseWadId: selectedBaseWad.id,
+          addonWadIds: selectedAddonWadIds,
           mode,
           maxPlayers,
-          episode,
-          map,
+          episode: selectedMap.episode,
+          map: selectedMap.map,
           skill,
-          deathmatchMonsters
+          deathmatchMonsters,
+          levelTimerMinutes
         })
       });
+      window.localStorage.setItem(hostTokenKey(response.room.slug), response.hostToken);
       window.location.assign(`/r/${response.room.slug}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create room.");
@@ -148,6 +174,10 @@ function HomePage() {
     setDeathmatchMonsters(false);
   }
 
+  function toggleAddon(id: string, checked: boolean) {
+    setSelectedAddonWadIds((current) => checked ? [...current, id] : current.filter((item) => item !== id));
+  }
+
   return (
     <main className="page-shell">
       <section className="home-layout">
@@ -159,16 +189,32 @@ function HomePage() {
           <form onSubmit={createRoom} className="room-form">
             <h2>Create a Room</h2>
             <label>
-              WAD
-              <select value={selectedWadId} onChange={(event) => setSelectedWadId(event.target.value)} disabled={wads.length === 0}>
-                {wads.length === 0 ? <option value="">No bundles found</option> : null}
-                {wads.map((wad) => (
+              Base WAD
+              <select value={selectedBaseWadId} onChange={(event) => setSelectedBaseWadId(event.target.value)} disabled={baseWads.length === 0}>
+                {baseWads.length === 0 ? <option value="">No IWADs found</option> : null}
+                {baseWads.map((wad) => (
                   <option key={wad.id} value={wad.id}>
                     {wad.displayName}
                   </option>
                 ))}
               </select>
             </label>
+
+            <fieldset className="addon-list">
+              <legend>Add-on maps</legend>
+              {addonWads.length === 0 ? <p>No PWADs found in data/wads.</p> : null}
+              {addonWads.map((wad) => (
+                <label key={wad.id} className="checkbox-field">
+                  <input
+                    type="checkbox"
+                    checked={selectedAddonWadIds.includes(wad.id)}
+                    onChange={(event) => toggleAddon(wad.id, event.target.checked)}
+                    disabled={selectedBaseWad ? wad.mapFormat !== selectedBaseWad.mapFormat : true}
+                  />
+                  <span>{wad.displayName}</span>
+                </label>
+              ))}
+            </fieldset>
 
             <label>
               Mode
@@ -195,30 +241,27 @@ function HomePage() {
                 <input type="number" min="2" max="4" value={maxPlayers} onChange={(event) => setMaxPlayers(Number(event.target.value))} />
               </label>
               <label>
-                Episode
-                <input
-                  type="number"
-                  min="1"
-                  max={selectedWad?.maxEpisode ?? 4}
-                  value={episode}
-                  onChange={(event) => setEpisode(Number(event.target.value))}
-                  disabled={!usesEpisodes}
-                />
+                Level
+                <select value={mapName} onChange={(event) => setMapName(event.target.value)} disabled={mapOptions.length === 0}>
+                  {mapOptions.map((map) => (
+                    <option key={map} value={map}>{map}</option>
+                  ))}
+                </select>
               </label>
             </div>
 
             <div className="field-row">
               <label>
-                Map
-                <input type="number" min="1" max={selectedWad?.maxMap ?? 9} value={map} onChange={(event) => setMap(Number(event.target.value))} />
-              </label>
-              <label>
                 Skill
                 <input type="number" min="1" max="5" value={skill} onChange={(event) => setSkill(Number(event.target.value))} />
               </label>
+              <label>
+                Timer
+                <input type="number" min="0" max="120" value={levelTimerMinutes} onChange={(event) => setLevelTimerMinutes(Number(event.target.value))} />
+              </label>
             </div>
 
-            <button type="submit" disabled={busy || !selectedWad}>
+            <button type="submit" disabled={busy || !selectedBaseWad}>
               {busy ? "Creating..." : "Start Private Room"}
             </button>
           </form>
@@ -226,7 +269,7 @@ function HomePage() {
           <form onSubmit={joinRoom} className="join-form">
             <h2>Join a Room</h2>
             <p className="form-help">
-              Ask the friend who created the room for their room code or invite link.
+              Join before the host starts. Doom multiplayer does not allow late active players.
             </p>
             <label>
               Room code
@@ -246,26 +289,28 @@ function RoomPage({ slug }: { slug: string }) {
   const [room, setRoom] = useState<RoomRecord | null>(null);
   const [launch, setLaunch] = useState<LaunchConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [bundleStatus, setBundleStatus] = useState<BundleStatus | null>(null);
   const [playerStarted, setPlayerStarted] = useState(false);
   const [activePlayers, setActivePlayers] = useState(0);
   const [showControls, setShowControls] = useState(false);
-  const playerRef = useRef<HTMLDivElement | null>(null);
-  const dosRef = useRef<DosProps | null>(null);
-  const ipxConnectedRef = useRef(false);
+  const [playerStatus, setPlayerStatus] = useState("");
+  const [canvasElement, setCanvasElement] = useState<HTMLCanvasElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const hostToken = useMemo(() => window.localStorage.getItem(hostTokenKey(slug)) ?? undefined, [slug]);
+  const setCanvasRef = useCallback((element: HTMLCanvasElement | null) => {
+    canvasRef.current = element;
+    setCanvasElement(element);
+  }, []);
 
   useEffect(() => {
-    fetchJson<{ room: RoomRecord; launch: LaunchConfig }>(`/api/rooms/${slug}`)
+    fetchJson<{ room: RoomRecord; launch: LaunchConfig }>(`/api/rooms/${slug}`, hostToken ? {
+      headers: { "x-doomhub-host-token": hostToken }
+    } : undefined)
       .then((payload) => {
         setRoom(payload.room);
         setLaunch(payload.launch);
-        return fetchJson<BundleStatus>(`/api/rooms/${slug}/bundle/status`);
-      })
-      .then((status) => {
-        setBundleStatus(status);
       })
       .catch((err: Error) => setError(err.message));
-  }, [slug]);
+  }, [hostToken, slug]);
 
   useEffect(() => {
     if (!room) {
@@ -298,70 +343,34 @@ function RoomPage({ slug }: { slug: string }) {
     };
   }, [room, slug]);
 
-  useEffect(() => {
-    if (!playerStarted || !launch || !playerRef.current || dosRef.current) {
-      return;
-    }
-
-    if (!window.Dos) {
-      setError("js-dos did not load. Check your internet connection or vendor the js-dos assets locally.");
-      return;
-    }
-
-    const ipxSocketUrl = getIpxSocketUrl(launch);
-    const isDev = Boolean((import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV);
-    if (isDev) {
-      window.__DOOMHUB_LAUNCH__ = launch;
-      console.debug("[DoomHub] js-dos launch config", launch);
-      console.debug("[DoomHub] js-dos IPX socket", ipxSocketUrl);
-    }
-
-    dosRef.current = window.Dos(playerRef.current, {
-      url: launch.bundleUrl,
-      autoStart: true,
-      mouseCapture: false,
-      renderAspect: "Fit",
-      imageRendering: "pixelated",
-      theme: "dark",
-      noNetworking: false,
-      onEvent: (event, arg) => {
-        if (event === "bnd-play") {
-          void fetchJson(`/api/rooms/${slug}/heartbeat`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ playerId })
-          });
-        }
-        if (event === "ci-ready" && arg && typeof arg !== "boolean" && !ipxConnectedRef.current) {
-          ipxConnectedRef.current = true;
-          arg.networkConnect(0, ipxSocketUrl).catch((err: Error) => {
-            ipxConnectedRef.current = false;
-            setError(`Could not connect to the IPX relay at ${ipxSocketUrl}: ${err.message}`);
-          });
-        }
-      }
-    });
-
-    return () => {
-      void dosRef.current?.stop();
-      dosRef.current = null;
-      ipxConnectedRef.current = false;
-    };
-  }, [launch, playerStarted, slug]);
-
   const shareUrl = useMemo(() => `${window.location.origin}/r/${slug}`, [slug]);
 
-  function startPlayer() {
+  async function startPlayer() {
+    if (!launch || !room) {
+      return;
+    }
     setError(null);
-    if (!bundleStatus?.available) {
-      setError(
-        bundleStatus
-          ? `Room is ready, but Doom is not installed yet. Add a js-dos bundle at ${bundleStatus.expectedPath}.`
-          : "Room is ready, but bundle status has not loaded yet."
-      );
+    if (!launch.canLaunch) {
+      setError(launch.blockedReason ?? "Game cannot be launched.");
       return;
     }
     setPlayerStarted(true);
+  }
+
+  async function markGameStarted() {
+    if (launch?.role !== "host") {
+      return;
+    }
+
+    try {
+      const payload = await fetchJson<{ room: RoomRecord }>(`/api/rooms/${slug}/start`, {
+        method: "POST",
+        headers: { "x-doomhub-host-token": hostToken ?? "" }
+      });
+      setRoom(payload.room);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not mark the room as started.");
+    }
   }
 
   return (
@@ -378,7 +387,7 @@ function RoomPage({ slug }: { slug: string }) {
           <span>{activePlayers} active</span>
           <button type="button" onClick={() => setShowControls(true)}>Controls</button>
           <button type="button" onClick={() => navigator.clipboard.writeText(shareUrl)}>Copy Link</button>
-          <button type="button" onClick={() => dosRef.current?.setFullScreen(true)}>Fullscreen</button>
+          <button type="button" onClick={() => canvasRef.current?.requestFullscreen()}>Fullscreen</button>
         </div>
       </header>
 
@@ -389,23 +398,94 @@ function RoomPage({ slug }: { slug: string }) {
         </div>
       ) : null}
       <section className="player-stage">
-        {room && !playerStarted ? (
+        {room && launch && !playerStarted ? (
           <div className="start-panel">
-            <p className="eyebrow">Ready room</p>
+            <p className="eyebrow">{launch.role === "host" ? "Host room" : "Join room"}</p>
             <h2>Room {slug}</h2>
             <p>
-              Share the link, then start Doom. The game waits for {room.maxPlayers} players before launching.
+              {launch.canLaunch
+                ? `Start before the match begins. The game waits for ${room.maxPlayers} players.`
+                : launch.blockedReason}
             </p>
-            <button type="button" onClick={startPlayer}>
-              Start Doom
+            <button type="button" onClick={startPlayer} disabled={!launch.canLaunch}>
+              {launch.role === "host" ? "Start Doom" : "Join Doom"}
             </button>
           </div>
         ) : null}
-        <div ref={playerRef} className="dos-player" />
+        <div className="dos-player">
+          <canvas ref={setCanvasRef} id="canvas" onContextMenu={(event) => event.preventDefault()} tabIndex={-1} />
+          {playerStarted && launch ? <DoomWasmPlayer launch={launch} canvas={canvasElement} onStatus={setPlayerStatus} onGameStarted={markGameStarted} /> : null}
+          {playerStatus ? <p className="player-status">{playerStatus}</p> : null}
+        </div>
       </section>
       {showControls ? <ControlsDialog onClose={() => setShowControls(false)} /> : null}
     </main>
   );
+}
+
+function DoomWasmPlayer({
+  launch,
+  canvas,
+  onStatus,
+  onGameStarted
+}: {
+  launch: LaunchConfig;
+  canvas: HTMLCanvasElement | null;
+  onStatus: (status: string) => void;
+  onGameStarted: () => void;
+}) {
+  const startedRef = useRef(false);
+
+  useEffect(() => {
+    if (!canvas || startedRef.current) {
+      return;
+    }
+    startedRef.current = true;
+    const isDev = Boolean((import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV);
+    if (isDev) {
+      window.__DOOMHUB_LAUNCH__ = launch;
+      console.debug("[DoomHub] doom-wasm launch config", launch);
+    }
+
+    window.Module = {
+      canvas,
+      noInitialRun: true,
+      preRun: () => {
+        window.Module?.FS?.createPreloadedFile("", "default.cfg", "/doom-wasm/default.cfg", true, true);
+        for (const wad of [launch.baseWad, ...launch.addonWads]) {
+          window.Module?.FS?.createPreloadedFile("", wad.fileName, wad.url, true, true);
+        }
+      },
+      onRuntimeInitialized: () => {
+        onStatus("Launching Doom...");
+        window.callMain?.(launch.args);
+      },
+      print: (text) => {
+        if (text.startsWith("doom:")) {
+          onStatus(text);
+          if (/^doom:\s*10,/.test(text)) {
+            void onGameStarted();
+          }
+        }
+        console.log(text);
+      },
+      printErr: (text) => {
+        console.error(text);
+      },
+      setStatus: (text) => {
+        onStatus(text);
+      },
+      totalDependencies: 0,
+      monitorRunDependencies(left) {
+        this.totalDependencies = Math.max(this.totalDependencies ?? 0, left);
+        onStatus(left ? `Preparing... (${(this.totalDependencies ?? 0) - left}/${this.totalDependencies})` : "All downloads complete.");
+      }
+    };
+
+    loadScript(launch.wasmScriptUrl).catch((err: Error) => onStatus(err.message));
+  }, [canvas, launch, onStatus]);
+
+  return null;
 }
 
 function ControlsDialog({ onClose }: { onClose: () => void }) {
@@ -461,10 +541,62 @@ function getPlayerId(): string {
   return created;
 }
 
-function getIpxSocketUrl(launch: LaunchConfig): string {
-  const backend = launch.ipx.find((item) => item.name === launch.ipxBackend) ?? launch.ipx[0];
-  const baseUrl = backend.host.endsWith("/") ? backend.host.slice(0, -1) : backend.host;
-  return `${baseUrl}/${launch.room.replaceAll("@", "_")}`;
+function hostTokenKey(slug: string): string {
+  return `doomhub-host-token-${slug}`;
+}
+
+function effectiveMapOptions(baseWad: WadRecord | undefined, addonWads: WadRecord[]): string[] {
+  if (!baseWad) {
+    return [];
+  }
+  const maps = [...baseWad.maps, ...addonWads.flatMap((wad) => wad.maps)];
+  if (maps.length > 0) {
+    return [...new Set(maps)].sort(compareMapNames);
+  }
+  if (baseWad.mapFormat === "map-number") {
+    return Array.from({ length: baseWad.maxMap }, (_, index) => `MAP${String(index + 1).padStart(2, "0")}`);
+  }
+  const generated: string[] = [];
+  for (let episode = 1; episode <= baseWad.maxEpisode; episode += 1) {
+    for (let map = 1; map <= baseWad.maxMap; map += 1) {
+      generated.push(`E${episode}M${map}`);
+    }
+  }
+  return generated;
+}
+
+function parseMapName(mapName: string, mapFormat: MapFormat): { episode: number; map: number } | null {
+  if (mapFormat === "map-number") {
+    const match = /^MAP(\d{2})$/.exec(mapName);
+    return match ? { episode: 1, map: Number(match[1]) } : null;
+  }
+
+  const match = /^E(\d+)M(\d+)$/.exec(mapName);
+  return match ? { episode: Number(match[1]), map: Number(match[2]) } : null;
+}
+
+function compareMapNames(a: string, b: string): number {
+  const parsedA = parseMapName(a, a.startsWith("MAP") ? "map-number" : "episode-map");
+  const parsedB = parseMapName(b, b.startsWith("MAP") ? "map-number" : "episode-map");
+  if (!parsedA || !parsedB) {
+    return a.localeCompare(b);
+  }
+  return parsedA.episode - parsedB.episode || parsedA.map - parsedB.map;
+}
+
+function loadScript(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) {
+      resolve();
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error(`Could not load ${src}. Make sure doom-wasm assets are installed.`));
+    document.body.appendChild(script);
+  });
 }
 
 createRoot(document.getElementById("root")!).render(<App />);
