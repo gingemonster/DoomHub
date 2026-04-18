@@ -1,7 +1,7 @@
 FROM node:24-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm install
+RUN apk add --no-cache python3 make g++ && npm install
 
 FROM deps AS build
 COPY tsconfig*.json vite.config.ts ./
